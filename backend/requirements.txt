@@ -1,3 +1,9 @@
 fastapi
 uvicorn
+python-dotenv
+supabase
 ruff
+numpy
+scipy
+trimesh
+open3d
