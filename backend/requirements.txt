@@ -6,3 +6,7 @@ ruff
 numpy
 scipy
 trimesh
+
+pytest
+httpx
+pydantic
