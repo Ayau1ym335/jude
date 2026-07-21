@@ -8,13 +8,18 @@ GET  /scans/{id}   — получение метаданных и статуса
 эндпоинт только сохраняет метаданные со статусом 'pending'.
 """
 
+import os
+import tempfile
+import httpx
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from app.dependencies.auth import CurrentUser, get_current_user
 from app.schemas.scan import ScanCreate, ScanRead
 from app.services.database import get_supabase
+from app.geometry.validator import validate_mesh
+from app.geometry.messages import VALIDATION_MESSAGES
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -24,6 +29,7 @@ TABLE = "scans"
 @router.post("", response_model=ScanRead, status_code=status.HTTP_201_CREATED)
 def create_scan(
     payload: ScanCreate,
+    background_tasks: BackgroundTasks,
     user: CurrentUser = Depends(get_current_user),
 ) -> ScanRead:
     """
@@ -62,7 +68,76 @@ def create_scan(
             detail="Supabase вернул пустой ответ при создании скана.",
         )
 
-    return ScanRead(**response.data[0])
+    scan_data = response.data[0]
+    
+    # Шаг 1-5: Запуск валидации в фоне, чтобы не блокировать ответ
+    background_tasks.add_task(process_scan_validation, str(scan_data["id"]), scan_data["file_url"])
+
+    return ScanRead(**scan_data)
+
+def process_scan_validation(scan_id: str, file_url: str):
+    """
+    Фоновая задача для загрузки файла, валидации меша и обновления статуса.
+    """
+    db = get_supabase()
+    validation_status = "valid"
+    validation_errors = []
+    tmp_path = None
+    
+    try:
+        # Шаг 2: Скачать файл
+        if file_url.startswith("http://") or file_url.startswith("https://"):
+            with httpx.Client() as client:
+                resp = client.get(file_url)
+                resp.raise_for_status()
+                file_bytes = resp.content
+        else:
+            # Считаем, что это путь в бакете 'scans' (Supabase Storage)
+            file_bytes = db.storage.from_("scans").download(file_url)
+            
+        # Сохраняем во временный файл
+        ext = os.path.splitext(file_url)[1]
+        if not ext:
+            ext = ".stl"
+            
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+            
+        # Шаг 3: Запустить validate_mesh()
+        result = validate_mesh(tmp_path)
+        
+        # Шаг 4: Получить valid=True/False
+        if not result["valid"]:
+            validation_status = "invalid"
+            for err in result["errors"]:
+                msg = VALIDATION_MESSAGES.get(err, f"Неизвестная ошибка: {err}")
+                validation_errors.append({
+                    "type": err, 
+                    "message": msg
+                })
+                
+    except Exception as e:
+        validation_status = "invalid"
+        msg = VALIDATION_MESSAGES.get("PROCESSING_ERROR", "Системная ошибка обработки.")
+        validation_errors.append({
+            "type": "PROCESSING_ERROR",
+            "message": f"{msg} Детали: {str(e)}"
+        })
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
+            
+    # Шаг 5: Обновить таблицу scans
+    update_data = {
+        "validation_status": validation_status,
+        "validation_errors": validation_errors if validation_errors else None
+    }
+    
+    try:
+        db.table(TABLE).update(update_data).eq("id", scan_id).execute()
+    except Exception as e:
+        print(f"Ошибка обновления статуса валидации для скана {scan_id}: {e}")
 
 
 @router.get("/{scan_id}", response_model=ScanRead)
