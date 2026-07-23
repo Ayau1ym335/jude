@@ -6,15 +6,52 @@ GET  /projects/{id}   — получение проекта
 """
 
 from uuid import UUID
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.schemas.project import ProjectCreate, ProjectRead
+from app.dependencies.auth import CurrentUser, get_current_user
+from app.schemas.project import ProjectCreate, ProjectList, ProjectRead
 from app.services.database import get_supabase
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 TABLE = "projects"
+
+
+@router.get("", response_model=ProjectList)
+def list_projects(
+    patient_id: Optional[UUID] = Query(
+        default=None,
+        description="Фильтр: вернуть только проекты указанного пациента."
+    ),
+    user: CurrentUser = Depends(get_current_user),
+) -> ProjectList:
+    """Список проектов, опционально отфильтрованных по patient_id."""
+    db = get_supabase()
+
+    try:
+        query = db.table(TABLE).select("*, scans(validation_status)", count="exact")
+        if patient_id is not None:
+            query = query.eq("patient_id", str(patient_id))
+        response = query.order("created_at", desc=True).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    total = response.count if response.count is not None else len(response.data)
+    items = []
+    for row in response.data:
+        # Supabase возвращает join как вложенный объект: row["scans"] = {"validation_status": ...}
+        scan_data = row.pop("scans", None)
+        scan_status = (
+            scan_data.get("validation_status")
+            if isinstance(scan_data, dict)
+            else None
+        )
+        project = ProjectRead(**row)
+        project.scan_validation_status = scan_status
+        items.append(project)
+    return ProjectList(items=items, total=total, patient_id=patient_id)
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)

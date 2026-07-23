@@ -52,13 +52,29 @@ export default function DashboardPage() {
             {user?.email ?? "unknown user"}
           </span>
         </p>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="rounded-full border border-zinc-300 px-5 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
-        >
-          Logout
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/patients")}
+            className="rounded-full bg-zinc-950 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            Пациенты
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/upload")}
+            className="rounded-full border border-zinc-300 px-5 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
+          >
+            Upload Scan
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-full border border-zinc-300 px-5 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
+          >
+            Logout
+          </button>
+        </div>
       </main>
     </div>
   );

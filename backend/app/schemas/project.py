@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -35,6 +35,16 @@ class ProjectRead(BaseModel):
     afo_type: Literal["posterior_leaf_spring"]
     created_at: datetime
     status: Literal["in_progress", "exported", "manufactured"] = "in_progress"
+    # Пополняется при list_projects через join co таблицей scans:
+    scan_validation_status: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class ProjectList(BaseModel):
+    """Ответ API при получении списка проектов (GET /projects)."""
+
+    items: List[ProjectRead]
+    total: int
+    patient_id: Optional[UUID] = None

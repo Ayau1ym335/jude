@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
@@ -8,15 +8,19 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import Stats from "three/examples/jsm/libs/stats.module.js";
 
+export interface ModelViewerHandle {
+  resetView: () => void;
+}
+
 interface ModelViewerProps {
   file: File;
 }
 
-export function ModelViewer({ file }: ModelViewerProps) {
+export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
+  function ModelViewer({ file }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasModel, setHasModel] = useState(false);
 
   // Refs for reset button
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -29,7 +33,6 @@ export function ModelViewer({ file }: ModelViewerProps) {
 
     setLoading(true);
     setError(null);
-    setHasModel(false);
 
     // Setup scene
     const scene = new THREE.Scene();
@@ -128,7 +131,6 @@ export function ModelViewer({ file }: ModelViewerProps) {
         target: controls.target.clone()
       };
 
-      setHasModel(true);
       setLoading(false);
     };
 
@@ -226,8 +228,12 @@ export function ModelViewer({ file }: ModelViewerProps) {
     }
   };
 
+  // Экспонируем resetView во внешний компонент через ref,
+  // чтобы страница могла разместить кнопку в собственном HTML-оверлее (задача 4.1).
+  useImperativeHandle(ref, () => ({ resetView: handleReset }), []);
+
   return (
-    <div className="relative w-full rounded-lg overflow-hidden border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="relative w-full overflow-hidden">
       {loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/5 dark:bg-white/5 z-10">
           <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Loading model...</p>
@@ -238,16 +244,10 @@ export function ModelViewer({ file }: ModelViewerProps) {
           <p className="text-sm font-medium text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
-      <div ref={containerRef} style={{ height: "300px", width: "100%" }} />
-      {hasModel && (
-        <button
-          type="button"
-          onClick={handleReset}
-          className="absolute bottom-4 right-4 z-10 rounded-full bg-zinc-900/80 px-4 py-2 text-xs font-medium text-white shadow-sm backdrop-blur-md transition-colors hover:bg-zinc-800 dark:bg-zinc-100/90 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          Сбросить вид
-        </button>
-      )}
+      <div ref={containerRef} style={{ height: "500px", width: "100%" }} />
     </div>
   );
 }
+);
+
+ModelViewer.displayName = "ModelViewer";
