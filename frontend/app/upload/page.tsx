@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
+import { ModelViewer } from "@/components/ModelViewer";
 
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["stl", "obj", "ply"]);
@@ -273,9 +274,12 @@ export default function UploadScanPage() {
           </label>
 
           {file ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Selected: {file.name}
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Selected: {file.name}
+              </p>
+              <ModelViewer file={file} />
+            </div>
           ) : null}
 
           {status === "uploading" ? (

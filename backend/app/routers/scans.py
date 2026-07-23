@@ -20,6 +20,7 @@ from app.schemas.scan import ScanCreate, ScanRead
 from app.services.database import get_supabase
 from app.geometry.validator import validate_mesh
 from app.geometry.messages import VALIDATION_MESSAGES
+from app.geometry.preview import create_preview_mesh
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -83,6 +84,8 @@ def process_scan_validation(scan_id: str, file_url: str):
     validation_status = "valid"
     validation_errors = []
     tmp_path = None
+    preview_mesh_url = None
+    preview_face_count = None
     
     try:
         # Шаг 2: Скачать файл
@@ -116,6 +119,29 @@ def process_scan_validation(scan_id: str, file_url: str):
                     "type": err, 
                     "message": msg
                 })
+        else:
+            # Шаг 4.1: Генерация превью (только для валидных сканов)
+            try:
+                preview_mesh = create_preview_mesh(tmp_path)
+                if preview_mesh is not None:
+                    preview_face_count = len(preview_mesh.faces)
+                    preview_ext = os.path.splitext(file_url)[1] or ".stl"
+                    preview_file_name = f"preview_{scan_id}{preview_ext}"
+                    preview_path = f"previews/{preview_file_name}"
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=preview_ext) as p_tmp:
+                        preview_mesh.export(p_tmp.name)
+                        with open(p_tmp.name, "rb") as f:
+                            db.storage.from_("scans").upload(
+                                path=preview_path, 
+                                file=f.read(),
+                                file_options={"x-upsert": "true"}
+                            )
+                        os.remove(p_tmp.name)
+                    
+                    preview_mesh_url = preview_path
+            except Exception as e:
+                print(f"Ошибка при сохранении превью скана {scan_id}: {e}")
                 
     except Exception as e:
         validation_status = "invalid"
@@ -133,6 +159,9 @@ def process_scan_validation(scan_id: str, file_url: str):
         "validation_status": validation_status,
         "validation_errors": validation_errors if validation_errors else None
     }
+    if preview_mesh_url:
+        update_data["preview_mesh_url"] = preview_mesh_url
+        update_data["preview_face_count"] = preview_face_count
     
     try:
         db.table(TABLE).update(update_data).eq("id", scan_id).execute()

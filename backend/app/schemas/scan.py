@@ -50,6 +50,8 @@ class ScanRead(BaseModel):
     uploaded_at: datetime
     validation_status: Literal["pending", "valid", "invalid"] = "pending"
     validation_errors: Optional[list[ValidationError]] = None
+    preview_mesh_url: Optional[str] = None
+    preview_face_count: Optional[int] = None
 
     class Config:
         from_attributes = True
