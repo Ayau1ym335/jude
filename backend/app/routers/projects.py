@@ -1,17 +1,34 @@
 """
 CRUD для Project — реальные запросы к Supabase.
 
-POST /projects        — создание проекта на основе скана
-GET  /projects/{id}   — получение проекта
+POST /projects                        — создание проекта на основе скана
+GET  /projects/{id}                   — получение проекта
+GET  /projects/{id}/versions          — список версий проекта
 """
 
+from datetime import datetime
 from uuid import UUID
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.dependencies.auth import CurrentUser, get_current_user
+from pydantic import BaseModel
 from app.schemas.project import ProjectCreate, ProjectList, ProjectRead
+
+
+class ProjectVersionRead(BaseModel):
+    """Краткое представление версии проекта (для TrimLinesPanel)."""
+
+    id: UUID
+    project_id: UUID
+    parent_version_id: Optional[UUID] = None
+    mesh_url: str
+    author_type: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 from app.services.database import get_supabase
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -142,3 +159,36 @@ def get_project(project_id: UUID) -> ProjectRead:
         )
 
     return ProjectRead(**response.data)
+
+
+@router.get("/{project_id}/versions", response_model=List[ProjectVersionRead])
+def get_project_versions(project_id: UUID) -> List[ProjectVersionRead]:
+    """Получить список версий проекта, отсортированных по дате создания."""
+    db = get_supabase()
+
+    # Проверяем, что проект существует.
+    project_resp = (
+        db.table(TABLE)
+        .select("id")
+        .eq("id", str(project_id))
+        .maybe_single()
+        .execute()
+    )
+    if project_resp.data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Проект с id={project_id} не найден.",
+        )
+
+    try:
+        response = (
+            db.table("project_versions")
+            .select("*")
+            .eq("project_id", str(project_id))
+            .order("created_at", desc=False)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    return [ProjectVersionRead(**row) for row in response.data]

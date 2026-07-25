@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
 import { ModelViewer, type ModelViewerHandle } from "@/components/ModelViewer";
-import TrimLineDrawer, { type TrimLineDrawerHandle, type SavedLine } from "@/components/TrimLineDrawer";
-import TrimLineControls from "@/components/TrimLineControls";
+import TrimLinesPanel from "@/components/TrimLinesPanel";
 
 interface ScanData {
   id: string;
@@ -24,6 +23,14 @@ interface ProjectData {
   scan_id: string;
   afo_type: string;
   status: string;
+}
+
+interface ProjectVersionData {
+  id: string;
+  project_id: string;
+  parent_version_id: string | null;
+  mesh_url: string;
+  created_at: string;
 }
 
 function ScanMetadataPanel({ scan }: { scan: ScanData }) {
@@ -56,42 +63,17 @@ export default function ProjectViewerPage() {
   const projectId = params.projectId;
 
   const viewerRef = useRef<ModelViewerHandle>(null);
-  const drawerRef = useRef<TrimLineDrawerHandle>(null);
-
-  // activeTool: null = орбита, "draw" = рисование линии
-  const [activeTool, setActiveTool] = useState<"draw" | null>(null);
-  // Состояние TrimLineDrawer, синхронизируется через onStateChange
-  const [drawerState, setDrawerState] = useState({
-    isDrawing: true,
-    pointsCount: 0,
-    loading: false,
-  });
-
-  const handleDrawerStateChange = useCallback(
-    (state: { isDrawing: boolean; pointsCount: number; loading: boolean }) => {
-      setDrawerState(state);
-    },
-    []
-  );
-
-  const handleSave = useCallback((data: SavedLine) => {
-    console.log("[viewer] Линия сохранена:", data);
-    // TODO (Неделя 11): POST /lines { scan_id, line_type, anchor_points, curve_points }
-    setActiveTool(null);
-  }, []);
-
-  const handleCancelDrawing = useCallback(() => {
-    drawerRef.current?.reset();
-    setActiveTool(null);
-  }, []);
 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [scan, setScan] = useState<ScanData | null>(null);
   const [project, setProject] = useState<ProjectData | null>(null);
+  const [version, setVersion] = useState<ProjectVersionData | null>(null);
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ─── Аутентификация ────────────────────────────────────────────────────────
 
   useEffect(() => {
     async function loadSession() {
@@ -105,6 +87,8 @@ export default function ProjectViewerPage() {
     }
     loadSession();
   }, [router]);
+
+  // ─── Загрузка проекта, скана и версии ────────────────────────────────────
 
   useEffect(() => {
     if (!session || !projectId) return;
@@ -128,19 +112,38 @@ export default function ProjectViewerPage() {
         const scanData = (await scanRes.json()) as ScanData;
         setScan(scanData);
 
-        // 3. Скачиваем файл из Supabase Storage (preview если есть, иначе оригинал)
+        // 3. Загружаем последнюю версию проекта (для trim_lines)
+        const versionsRes = await fetch(
+          `${apiUrl}/projects/${projectId}/versions`,
+          { headers }
+        );
+        if (versionsRes.ok) {
+          const versions = (await versionsRes.json()) as ProjectVersionData[];
+          if (versions.length > 0) {
+            // Берём последнюю версию по created_at
+            const latest = versions.reduce((a, b) =>
+              new Date(a.created_at) > new Date(b.created_at) ? a : b
+            );
+            setVersion(latest);
+          }
+        }
+
+        // 4. Скачиваем файл из Supabase Storage (preview если есть, иначе оригинал)
         const storagePath = scanData.preview_mesh_url ?? scanData.file_url;
         const { data: fileData, error: storageError } = await supabase.storage
           .from("scan-files")
           .download(storagePath);
 
         if (storageError || !fileData) {
-          throw new Error(`Ошибка загрузки файла скана: ${storageError?.message ?? "нет данных"}`);
+          throw new Error(
+            `Ошибка загрузки файла скана: ${storageError?.message ?? "нет данных"}`
+          );
         }
 
-        // Определяем расширение из пути
         const ext = storagePath.split(".").pop()?.toLowerCase() ?? scanData.file_format;
-        const file = new File([fileData], `scan.${ext}`, { type: "application/octet-stream" });
+        const file = new File([fileData], `scan.${ext}`, {
+          type: "application/octet-stream",
+        });
         setScanFile(file);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ошибка загрузки скана");
@@ -151,6 +154,8 @@ export default function ProjectViewerPage() {
 
     void fetchAndPrepare();
   }, [session, projectId]);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   if (authLoading) {
     return (
@@ -179,29 +184,10 @@ export default function ProjectViewerPage() {
               </span>
             )}
           </div>
-
-          {/* Панель инструментов */}
-          {!loading && !error && scanFile && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveTool((t) => (t === "draw" ? null : "draw"))
-                }
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  activeTool === "draw"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                }`}
-              >
-                ✏️ Линия
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Viewer card */}
-        <div className="relative rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           {loading && (
             <div className="flex h-96 items-center justify-center">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -217,11 +203,11 @@ export default function ProjectViewerPage() {
 
           {!loading && !error && scanFile && (
             <>
-              {/* Панель метаданных — левый верхний угол поверх Canvas (задача 4.2) */}
+              {/* Панель метаданных — левый верхний угол */}
               {scan && <ScanMetadataPanel scan={scan} />}
 
-              {/* Кнопка сброса — правый верхний угол поверх Canvas (задача 4.1) */}
-              <div className="absolute right-4 top-4 z-20">
+              {/* Кнопка сброса вида — правый нижний угол (не перекрывается панелью линий) */}
+              <div className="absolute bottom-4 right-4 z-20">
                 <button
                   type="button"
                   onClick={() => viewerRef.current?.resetView()}
@@ -231,33 +217,27 @@ export default function ProjectViewerPage() {
                 </button>
               </div>
 
-              {/* 3D-вьюер — занимает всю ширину карточки */}
+              {/* 3D-вьюер */}
               <ModelViewer ref={viewerRef} file={scanFile} />
 
-              {/* TrimLineDrawer — активен только в режиме "draw" */}
-              {activeTool === "draw" && scan && (
-                <TrimLineDrawer
-                  ref={drawerRef}
+              {/* Панель трёх PLS-линий обрезки */}
+              {scan && version ? (
+                <TrimLinesPanel
                   viewerRef={viewerRef}
                   scanId={scan.id}
-                  lineType="trim"
-                  onSave={handleSave}
-                  onStateChange={handleDrawerStateChange}
+                  versionId={version.id}
                 />
-              )}
-
-              {/* TrimLineControls — панель управления рисованием */}
-              {activeTool === "draw" && (
-                <TrimLineControls
-                  isDrawing={drawerState.isDrawing}
-                  pointsCount={drawerState.pointsCount}
-                  loading={drawerState.loading}
-                  lineType="trim"
-                  onUndo={() => drawerRef.current?.removeLastPoint()}
-                  onFinish={() => drawerRef.current?.finishDrawing()}
-                  onCancel={handleCancelDrawing}
-                />
-              )}
+              ) : scan && !version ? (
+                /* Версия ещё не создана — показываем информационную плашку */
+                <div className="absolute right-4 top-4 z-20 rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2.5 shadow-sm backdrop-blur-md dark:border-amber-700/50 dark:bg-amber-900/30">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                    Версия проекта не найдена
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">
+                    Создайте версию для разметки линий
+                  </p>
+                </div>
+              ) : null}
             </>
           )}
         </div>
