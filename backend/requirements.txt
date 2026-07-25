@@ -9,3 +9,4 @@ trimesh
 pytest
 httpx
 pydantic
+pygeodesic
