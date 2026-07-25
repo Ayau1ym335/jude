@@ -10,22 +10,41 @@ import Stats from "three/examples/jsm/libs/stats.module.js";
 
 export interface ModelViewerHandle {
   resetView: () => void;
+  /** THREE.Mesh объект загруженного скана (null до завершения загрузки) */
+  getMesh: () => THREE.Mesh | null;
+  /** THREE.PerspectiveCamera активной сцены */
+  getCamera: () => THREE.PerspectiveCamera | null;
+  /** WebGLRenderer активной сцены */
+  getRenderer: () => THREE.WebGLRenderer | null;
+  /** Включает/отключает OrbitControls — нужно при drag опорных точек TrimLineDrawer */
+  setControlsEnabled: (enabled: boolean) => void;
 }
 
 interface ModelViewerProps {
   file: File;
+  /** Вызывается при клике на поверхность меша; получает [x, y, z] в мировых координатах */
+  onMeshClick?: (point: [number, number, number]) => void;
+  /** Если true — клик переключается в режим выбора точки (блокирует OrbitControls) */
+  pickMode?: boolean;
 }
 
 export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
-  function ModelViewer({ file }, ref) {
+  function ModelViewer({ file, onMeshClick, pickMode = false }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Refs for reset button
+  // Refs for reset button + raycasting
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const initialViewRef = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  // Callback ref kept current across renders without re-running the effect
+  const onMeshClickRef = useRef(onMeshClick);
+  onMeshClickRef.current = onMeshClick;
+  const pickModeRef = useRef(pickMode);
+  pickModeRef.current = pickMode;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -42,11 +61,13 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     const height = 300;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+    cameraRef.current = camera;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     // Оптимизация 1.3: ограничиваем pixelRatio = 2 максимум.
     // Устройства с pixelRatio > 2 рендерят в 3x+ больше пикселей без заметного визуального выигрыша.
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    rendererRef.current = renderer;
     
     // Clear container
     while (container.firstChild) {
@@ -145,8 +166,29 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
         geometry.computeVertexNormals();
       }
       const mesh = new THREE.Mesh(geometry, material);
+      // Сохраняем ref на mesh для raycasting
+      meshRef.current = mesh;
       centerAndAddObject(mesh);
     };
+
+    // ── Raycasting ──────────────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const handleCanvasClick = (event: MouseEvent) => {
+      if (!meshRef.current || !onMeshClickRef.current) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObject(meshRef.current);
+      if (hits.length > 0) {
+        const p = hits[0].point;
+        onMeshClickRef.current([p.x, p.y, p.z]);
+      }
+    };
+
+    renderer.domElement.addEventListener('click', handleCanvasClick);
 
     if (extension === 'stl') {
       const loader = new STLLoader();
@@ -207,9 +249,13 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     animate();
 
     return () => {
+      renderer.domElement.removeEventListener('click', handleCanvasClick);
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationId);
       URL.revokeObjectURL(objectUrl);
+      meshRef.current = null;
+      cameraRef.current = null;
+      rendererRef.current = null;
       renderer.dispose();
       if (stats?.dom && container?.contains(stats.dom)) {
         container.removeChild(stats.dom);
@@ -218,7 +264,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
         container.removeChild(renderer.domElement);
       }
     };
-  }, [file]);
+  }, [file]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleReset = () => {
     if (cameraRef.current && controlsRef.current && initialViewRef.current) {
@@ -228,9 +274,16 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     }
   };
 
-  // Экспонируем resetView во внешний компонент через ref,
-  // чтобы страница могла разместить кнопку в собственном HTML-оверлее (задача 4.1).
-  useImperativeHandle(ref, () => ({ resetView: handleReset }), []);
+  // Экспонируем resetView + геттеры для raycasting через ref.
+  useImperativeHandle(ref, () => ({
+    resetView: handleReset,
+    getMesh: () => meshRef.current,
+    getCamera: () => cameraRef.current,
+    getRenderer: () => rendererRef.current,
+    setControlsEnabled: (enabled: boolean) => {
+      if (controlsRef.current) controlsRef.current.enabled = enabled;
+    },
+  }), []);
 
   return (
     <div className="relative w-full overflow-hidden">

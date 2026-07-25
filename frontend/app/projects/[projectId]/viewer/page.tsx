@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
 import { ModelViewer, type ModelViewerHandle } from "@/components/ModelViewer";
+import TrimLineDrawer, { type TrimLineDrawerHandle, type SavedLine } from "@/components/TrimLineDrawer";
+import TrimLineControls from "@/components/TrimLineControls";
 
 interface ScanData {
   id: string;
@@ -54,6 +56,34 @@ export default function ProjectViewerPage() {
   const projectId = params.projectId;
 
   const viewerRef = useRef<ModelViewerHandle>(null);
+  const drawerRef = useRef<TrimLineDrawerHandle>(null);
+
+  // activeTool: null = орбита, "draw" = рисование линии
+  const [activeTool, setActiveTool] = useState<"draw" | null>(null);
+  // Состояние TrimLineDrawer, синхронизируется через onStateChange
+  const [drawerState, setDrawerState] = useState({
+    isDrawing: true,
+    pointsCount: 0,
+    loading: false,
+  });
+
+  const handleDrawerStateChange = useCallback(
+    (state: { isDrawing: boolean; pointsCount: number; loading: boolean }) => {
+      setDrawerState(state);
+    },
+    []
+  );
+
+  const handleSave = useCallback((data: SavedLine) => {
+    console.log("[viewer] Линия сохранена:", data);
+    // TODO (Неделя 11): POST /lines { scan_id, line_type, anchor_points, curve_points }
+    setActiveTool(null);
+  }, []);
+
+  const handleCancelDrawing = useCallback(() => {
+    drawerRef.current?.reset();
+    setActiveTool(null);
+  }, []);
 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -149,6 +179,25 @@ export default function ProjectViewerPage() {
               </span>
             )}
           </div>
+
+          {/* Панель инструментов */}
+          {!loading && !error && scanFile && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveTool((t) => (t === "draw" ? null : "draw"))
+                }
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  activeTool === "draw"
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                }`}
+              >
+                ✏️ Линия
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Viewer card */}
@@ -184,6 +233,31 @@ export default function ProjectViewerPage() {
 
               {/* 3D-вьюер — занимает всю ширину карточки */}
               <ModelViewer ref={viewerRef} file={scanFile} />
+
+              {/* TrimLineDrawer — активен только в режиме "draw" */}
+              {activeTool === "draw" && scan && (
+                <TrimLineDrawer
+                  ref={drawerRef}
+                  viewerRef={viewerRef}
+                  scanId={scan.id}
+                  lineType="trim"
+                  onSave={handleSave}
+                  onStateChange={handleDrawerStateChange}
+                />
+              )}
+
+              {/* TrimLineControls — панель управления рисованием */}
+              {activeTool === "draw" && (
+                <TrimLineControls
+                  isDrawing={drawerState.isDrawing}
+                  pointsCount={drawerState.pointsCount}
+                  loading={drawerState.loading}
+                  lineType="trim"
+                  onUndo={() => drawerRef.current?.removeLastPoint()}
+                  onFinish={() => drawerRef.current?.finishDrawing()}
+                  onCancel={handleCancelDrawing}
+                />
+              )}
             </>
           )}
         </div>
