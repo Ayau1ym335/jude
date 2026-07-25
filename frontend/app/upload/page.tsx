@@ -194,7 +194,27 @@ export default function UploadScanPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Upload failed");
+        throw new Error("Scan upload failed");
+      }
+      
+      const scanData = await response.json();
+
+      // Создаем проект, привязанный к загруженному скану
+      const projectResponse = await fetch(`${apiUrl}/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          patient_id: patientId.trim(),
+          scan_id: scanData.id,
+          afo_type: "posterior_leaf_spring", // Значение по умолчанию для MVP
+        }),
+      });
+
+      if (!projectResponse.ok) {
+        throw new Error("Project creation failed");
       }
 
       setUploadedPath(storedPath);
