@@ -25,7 +25,7 @@ def load_mesh_from_url(scan_id: str) -> trimesh.Trimesh:
             file_bytes = resp.content
     else:
         # Supabase Storage
-        file_bytes = db.storage.from_("scans").download(file_url)
+        file_bytes = db.storage.from_("scan-files").download(file_url)
         
     ext = os.path.splitext(file_url)[1]
     if not ext:

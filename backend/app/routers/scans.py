@@ -95,8 +95,8 @@ def process_scan_validation(scan_id: str, file_url: str):
                 resp.raise_for_status()
                 file_bytes = resp.content
         else:
-            # Считаем, что это путь в бакете 'scans' (Supabase Storage)
-            file_bytes = db.storage.from_("scans").download(file_url)
+            # Считаем, что это путь в бакете 'scan-files' (Supabase Storage)
+            file_bytes = db.storage.from_("scan-files").download(file_url)
             
         # Сохраняем во временный файл
         ext = os.path.splitext(file_url)[1]
@@ -132,7 +132,7 @@ def process_scan_validation(scan_id: str, file_url: str):
                     with tempfile.NamedTemporaryFile(delete=False, suffix=preview_ext) as p_tmp:
                         preview_mesh.export(p_tmp.name)
                         with open(p_tmp.name, "rb") as f:
-                            db.storage.from_("scans").upload(
+                            db.storage.from_("scan-files").upload(
                                 path=preview_path, 
                                 file=f.read(),
                                 file_options={"x-upsert": "true"}

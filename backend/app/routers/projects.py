@@ -192,3 +192,59 @@ def get_project_versions(project_id: UUID) -> List[ProjectVersionRead]:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
 
     return [ProjectVersionRead(**row) for row in response.data]
+
+
+@router.post("/{project_id}/versions", response_model=ProjectVersionRead, status_code=status.HTTP_201_CREATED)
+def create_initial_project_version(project_id: UUID) -> ProjectVersionRead:
+    """Создать первую (базовую) версию проекта, привязав к ней исходный скан."""
+    db = get_supabase()
+
+    # 1. Получаем проект
+    proj_resp = (
+        db.table(TABLE)
+        .select("scan_id")
+        .eq("id", str(project_id))
+        .maybe_single()
+        .execute()
+    )
+    if not proj_resp.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Проект с id={project_id} не найден."
+        )
+
+    scan_id = proj_resp.data["scan_id"]
+
+    # 2. Получаем скан (нужен file_url)
+    scan_resp = (
+        db.table("scans")
+        .select("file_url")
+        .eq("id", scan_id)
+        .maybe_single()
+        .execute()
+    )
+    if not scan_resp.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Скан с id={scan_id} не найден."
+        )
+
+    # 3. Вставляем первую версию
+    data = {
+        "project_id": str(project_id),
+        "parent_version_id": None,
+        "mesh_url": scan_resp.data["file_url"],
+        "author_type": "human",
+    }
+    try:
+        response = db.table("project_versions").insert(data).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Supabase вернул пустой ответ при создании версии."
+        )
+
+    return ProjectVersionRead(**response.data[0])
