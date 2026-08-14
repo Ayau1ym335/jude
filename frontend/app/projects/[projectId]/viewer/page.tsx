@@ -7,12 +7,15 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { ModelViewer, type ModelViewerHandle } from "@/components/ModelViewer";
 import TrimLinesPanel from "@/components/TrimLinesPanel";
+import SmoothingTool from "@/components/SmoothingTool";
+import InversionStep from "@/components/InversionStep";
 
 interface ScanData {
   id: string;
   file_url: string;
   preview_mesh_url: string | null;
   file_format: "stl" | "obj" | "ply";
+  scan_source: "patient_direct" | "cast_negative";
   uploaded_at: string;
   validation_status: "pending" | "valid" | "invalid";
 }
@@ -72,6 +75,107 @@ export default function ProjectViewerPage() {
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creatingVersion, setCreatingVersion] = useState(false);
+
+  // ─── Smoothing state ──────────────────────────────────────────────────────
+  const [smoothingPickMode, setSmoothingPickMode] = useState(false);
+  const [smoothingPickedPoint, setSmoothingPickedPoint] = useState<
+    [number, number, number] | null
+  >(null);
+  const [previousScanFile, setPreviousScanFile] = useState<File | null>(null);
+  const [previousVersion, setPreviousVersion] = useState<ProjectVersionData | null>(null);
+
+  async function handleCreateVersion() {
+    if (!session || !projectId) return;
+    setCreatingVersion(true);
+    setError(null);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      const res = await fetch(`${apiUrl}/projects/${projectId}/versions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Не удалось создать версию");
+      const data = (await res.json()) as ProjectVersionData;
+      setVersion(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка создания версии");
+    } finally {
+      setCreatingVersion(false);
+    }
+  }
+
+  // ─── Smoothing handlers ────────────────────────────────────────────────────
+
+  function handleMeshClick(point: [number, number, number]) {
+    if (smoothingPickMode) {
+      setSmoothingPickedPoint(point);
+      setSmoothingPickMode(false);
+    }
+  }
+
+  async function handleSmoothingApplied(newMeshUrl: string) {
+    // Сохраняем текущее состояние для отмены
+    setPreviousScanFile(scanFile);
+    setPreviousVersion(version);
+    setSmoothingPickedPoint(null);
+
+    try {
+      // Скачиваем обновлённый mesh из Supabase Storage
+      const { data: fileData, error: storageError } = await supabase.storage
+        .from("scan-files")
+        .download(newMeshUrl);
+
+      if (storageError || !fileData) {
+        throw new Error(
+          `Ошибка загрузки обновлённого mesh: ${storageError?.message ?? "нет данных"}`
+        );
+      }
+
+      const ext = newMeshUrl.split(".").pop()?.toLowerCase() ?? "stl";
+      const file = new File([fileData], `scan.${ext}`, {
+        type: "application/octet-stream",
+      });
+      setScanFile(file);
+
+      // Перезагружаем последнюю версию (backend создал новую запись в project_versions)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (session && projectId) {
+        const headers = { Authorization: `Bearer ${session.access_token}` };
+        const versionsRes = await fetch(
+          `${apiUrl}/projects/${projectId}/versions`,
+          { headers }
+        );
+        if (versionsRes.ok) {
+          const versions = (await versionsRes.json()) as ProjectVersionData[];
+          if (versions.length > 0) {
+            const latest = versions.reduce((a, b) =>
+              new Date(a.created_at) > new Date(b.created_at) ? a : b
+            );
+            setVersion(latest);
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка загрузки обновлённого mesh");
+      // Откатываем при ошибке
+      setPreviousScanFile(null);
+      setPreviousVersion(null);
+    }
+  }
+
+  function handleUndo() {
+    if (previousScanFile) {
+      setScanFile(previousScanFile);
+      if (previousVersion) setVersion(previousVersion);
+      setPreviousScanFile(null);
+      setPreviousVersion(null);
+      setSmoothingPickedPoint(null);
+    }
+  }
 
   // ─── Аутентификация ────────────────────────────────────────────────────────
 
@@ -166,8 +270,8 @@ export default function ProjectViewerPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black h-[100dvh]">
+      <div className="flex flex-1 flex-col w-full h-full px-4 py-4 max-w-none">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -187,7 +291,7 @@ export default function ProjectViewerPage() {
         </div>
 
         {/* Viewer card */}
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="relative flex-1 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           {loading && (
             <div className="flex h-96 items-center justify-center">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -206,8 +310,17 @@ export default function ProjectViewerPage() {
               {/* Панель метаданных — левый верхний угол */}
               {scan && <ScanMetadataPanel scan={scan} />}
 
-              {/* Кнопка сброса вида — правый нижний угол (не перекрывается панелью линий) */}
-              <div className="absolute bottom-4 right-4 z-20">
+              {/* Нижняя панель кнопок */}
+              <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
+                {previousScanFile && (
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    className="rounded-full border border-zinc-300 bg-white/90 px-4 py-2 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur-md transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800/90 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  >
+                    ↩ Отменить
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => viewerRef.current?.resetView()}
@@ -218,7 +331,23 @@ export default function ProjectViewerPage() {
               </div>
 
               {/* 3D-вьюер */}
-              <ModelViewer ref={viewerRef} file={scanFile} />
+              <ModelViewer
+                ref={viewerRef}
+                file={scanFile}
+                onMeshClick={handleMeshClick}
+                pickMode={smoothingPickMode}
+              />
+
+              {/* Панель инверсии слепка — только для cast_negative, перед ректификацией */}
+              {scan && version && session && (
+                <InversionStep
+                  scanId={scan.id}
+                  versionId={version.id}
+                  scanSource={scan.scan_source}
+                  sessionToken={session.access_token}
+                  onInverted={handleSmoothingApplied}
+                />
+              )}
 
               {/* Панель трёх PLS-линий обрезки */}
               {scan && version ? (
@@ -228,16 +357,36 @@ export default function ProjectViewerPage() {
                   versionId={version.id}
                 />
               ) : scan && !version ? (
-                /* Версия ещё не создана — показываем информационную плашку */
-                <div className="absolute right-4 top-4 z-20 rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2.5 shadow-sm backdrop-blur-md dark:border-amber-700/50 dark:bg-amber-900/30">
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                /* Версия ещё не создана — показываем информационную плашку с кнопкой */
+                <div className="absolute right-4 top-4 z-20 rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 shadow-sm backdrop-blur-md dark:border-amber-700/50 dark:bg-amber-900/30 max-w-xs">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                     Версия проекта не найдена
                   </p>
-                  <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">
-                    Создайте версию для разметки линий
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    Создайте базовую версию из скана, чтобы начать работу с разметкой линий.
                   </p>
+                  <button
+                    onClick={handleCreateVersion}
+                    disabled={creatingVersion}
+                    className="mt-3 w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-500 dark:hover:bg-amber-600"
+                  >
+                    {creatingVersion ? "Создание..." : "Создать версию"}
+                  </button>
                 </div>
               ) : null}
+
+              {/* Панель сглаживания */}
+              {scan && version && (
+                <SmoothingTool
+                  viewerRef={viewerRef}
+                  scanId={scan.id}
+                  versionId={version.id}
+                  onApplied={handleSmoothingApplied}
+                  pickedPoint={smoothingPickedPoint}
+                  isPickMode={smoothingPickMode}
+                  onTogglePickMode={setSmoothingPickMode}
+                />
+              )}
             </>
           )}
         </div>

@@ -270,7 +270,7 @@ export default function UploadScanPage() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Scan source
+            Тип скана
             <select
               value={scanSource}
               onChange={(event) =>
@@ -278,8 +278,8 @@ export default function UploadScanPage() {
               }
               className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
             >
-              <option value="patient_direct">patient_direct</option>
-              <option value="cast_negative">cast_negative</option>
+              <option value="patient_direct">Прямой скан пациента</option>
+              <option value="cast_negative">Скан гипсового слепка (негатив)</option>
             </select>
           </label>
 

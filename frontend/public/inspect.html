@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Inversion Result — Visual Inspection</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #18181b; color: #f4f4f5; font-family: system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    header { padding: 12px 20px; background: #27272a; border-bottom: 1px solid #3f3f46; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 14px; font-weight: 600; }
+    .controls { display: flex; gap: 8px; margin-left: auto; }
+    button { padding: 6px 14px; border-radius: 6px; border: 1px solid #52525b; background: #3f3f46; color: #f4f4f5; cursor: pointer; font-size: 12px; }
+    button:hover { background: #52525b; }
+    button.active { background: #2563eb; border-color: #3b82f6; }
+    #info { padding: 8px 20px; background: #09090b; font-size: 11px; color: #71717a; }
+    #canvas-container { flex: 1; position: relative; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #a1a1aa; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔍 Visual Inspection — Inversion Result STL</h1>
+    <div class="controls">
+      <button id="btn-original" onclick="loadFile('original')">Оригинал</button>
+      <button id="btn-result" onclick="loadFile('result')" class="active">Результат (инверсия+offset)</button>
+      <button onclick="toggleWireframe()">Wireframe</button>
+      <button onclick="resetView()">Сброс вида</button>
+    </div>
+  </header>
+  <div id="info">Наводите мышь для вращения, колесо для зума, ПКМ для перемещения. Проверьте: дыры, самопересечения, шипы, "рваную" геометрию.</div>
+  <div id="canvas-container">
+    <div id="status">Загрузка Three.js...</div>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+    const container = document.getElementById('canvas-container');
+    const status = document.getElementById('status');
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x18181b);
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    container.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const d1 = new THREE.DirectionalLight(0xffffff, 1.2); d1.position.set(10,10,10); scene.add(d1);
+    const d2 = new THREE.DirectionalLight(0xffffff, 0.4); d2.position.set(-10,-5,-10); scene.add(d2);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    let currentMesh = null;
+    let wireframeMode = false;
+
+    const material = new THREE.MeshStandardMaterial({ color: 0xb8b8c8, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide });
+
+    window.loadFile = function(which) {
+      document.getElementById('btn-original').classList.toggle('active', which === 'original');
+      document.getElementById('btn-result').classList.toggle('active', which === 'result');
+
+      const url = which === 'original' ? '/inversion_original.stl' : '/inversion_result.stl';
+      status.textContent = 'Загрузка...';
+
+      if (currentMesh) { scene.remove(currentMesh); currentMesh.geometry.dispose(); }
+
+      new STLLoader().load(url, (geo) => {
+        if (!geo.attributes.normal) geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, material.clone());
+        mesh.material.wireframe = wireframeMode;
+
+        // Center
+        const box = new THREE.Box3().setFromObject(mesh);
+        const center = box.getCenter(new THREE.Vector3());
+        mesh.position.sub(center);
+        scene.add(mesh);
+        currentMesh = mesh;
+
+        const sphere = box.getBoundingSphere(new THREE.Sphere());
+        camera.position.set(0, 0, sphere.radius * 3);
+        controls.target.set(0, 0, 0);
+        controls.minDistance = sphere.radius * 1.1;
+        controls.maxDistance = sphere.radius * 8;
+        controls.update();
+
+        status.textContent = '';
+        const info = document.getElementById('info');
+        info.textContent = `${which === 'original' ? 'ОРИГИНАЛ' : 'РЕЗУЛЬТАТ (инверсия+offset 4мм)'} | Вершин: ${geo.attributes.position.count} | BB: [${box.max.x - box.min.x | 0}, ${box.max.y - box.min.y | 0}, ${box.max.z - box.min.z | 0}] мм | Вращение: ЛКМ | Зум: колесо | Перемещение: ПКМ`;
+      }, undefined, (err) => { status.textContent = 'Ошибка загрузки: ' + err; });
+    };
+
+    window.toggleWireframe = function() {
+      wireframeMode = !wireframeMode;
+      if (currentMesh) currentMesh.material.wireframe = wireframeMode;
+    };
+
+    window.resetView = function() {
+      if (!currentMesh) return;
+      const box = new THREE.Box3().setFromObject(currentMesh);
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      camera.position.set(0, 0, sphere.radius * 3);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    };
+
+    // Resize
+    function resize() {
+      const w = container.clientWidth, h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Animate
+    (function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
+
+    // Load result by default
+    loadFile('result');
+  </script>
+</body>
+</html>

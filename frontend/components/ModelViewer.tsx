@@ -18,6 +18,12 @@ export interface ModelViewerHandle {
   getRenderer: () => THREE.WebGLRenderer | null;
   /** Включает/отключает OrbitControls — нужно при drag опорных точек TrimLineDrawer */
   setControlsEnabled: (enabled: boolean) => void;
+  /** Bounding box меша в мировых координатах после центрирования (null до загрузки) */
+  getBoundingBox: () => THREE.Box3 | null;
+  /** Показать/обновить полупрозрачную сферу предпросмотра зоны сглаживания */
+  showPreviewSphere: (center: [number, number, number], radius: number) => void;
+  /** Скрыть сферу предпросмотра */
+  hidePreviewSphere: () => void;
 }
 
 interface ModelViewerProps {
@@ -40,6 +46,10 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
   const meshRef = useRef<THREE.Mesh | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const initialViewRef = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  // Bounding box после центрирования (нужен LineHintOverlay)
+  const boundingBoxRef = useRef<THREE.Box3 | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const previewSphereRef = useRef<THREE.Mesh | null>(null);
   // Callback ref kept current across renders without re-running the effect
   const onMeshClickRef = useRef(onMeshClick);
   onMeshClickRef.current = onMeshClick;
@@ -56,9 +66,10 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     // Setup scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf4f4f5); // match bg-zinc-50
+    sceneRef.current = scene;
 
     const width = container.clientWidth;
-    const height = 300;
+    const height = container.clientHeight || 500;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
     cameraRef.current = camera;
@@ -125,6 +136,8 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
 
       // Шаг 2: пересчёт bounding sphere после центрирования, для установки камеры
       const newBox = new THREE.Box3().setFromObject(object);
+      // Сохраняем bounding box после центрирования для LineHintOverlay
+      boundingBoxRef.current = newBox.clone();
       const sphere = newBox.getBoundingSphere(new THREE.Sphere());
       const radius = sphere.radius;
       
@@ -232,9 +245,10 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     const handleResize = () => {
       if (!container) return;
       const newWidth = container.clientWidth;
-      camera.aspect = newWidth / height;
+      const newHeight = container.clientHeight || 500;
+      camera.aspect = newWidth / newHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(newWidth, height);
+      renderer.setSize(newWidth, newHeight);
     };
     window.addEventListener("resize", handleResize);
 
@@ -253,9 +267,19 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationId);
       URL.revokeObjectURL(objectUrl);
+      // Cleanup preview sphere
+      if (previewSphereRef.current) {
+        previewSphereRef.current.geometry.dispose();
+        (previewSphereRef.current.material as THREE.Material).dispose();
+        if (previewSphereRef.current.parent) {
+          previewSphereRef.current.parent.remove(previewSphereRef.current);
+        }
+        previewSphereRef.current = null;
+      }
       meshRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;
+      sceneRef.current = null;
       renderer.dispose();
       if (stats?.dom && container?.contains(stats.dom)) {
         container.removeChild(stats.dom);
@@ -283,6 +307,36 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
     setControlsEnabled: (enabled: boolean) => {
       if (controlsRef.current) controlsRef.current.enabled = enabled;
     },
+    getBoundingBox: () => boundingBoxRef.current,
+    showPreviewSphere: (center: [number, number, number], radius: number) => {
+      const scene = sceneRef.current;
+      if (!scene) return;
+
+      if (!previewSphereRef.current) {
+        const geo = new THREE.SphereGeometry(1, 24, 16);
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0xff8c00,
+          transparent: true,
+          opacity: 0.18,
+          wireframe: true,
+        });
+        previewSphereRef.current = new THREE.Mesh(geo, mat);
+      }
+
+      const sphere = previewSphereRef.current;
+      sphere.position.set(center[0], center[1], center[2]);
+      sphere.scale.setScalar(radius);
+
+      if (!sphere.parent) {
+        scene.add(sphere);
+      }
+    },
+    hidePreviewSphere: () => {
+      const sphere = previewSphereRef.current;
+      if (sphere?.parent) {
+        sphere.parent.remove(sphere);
+      }
+    },
   }), []);
 
   return (
@@ -297,7 +351,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
           <p className="text-sm font-medium text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
-      <div ref={containerRef} style={{ height: "500px", width: "100%" }} />
+      <div ref={containerRef} className="h-full w-full min-h-[500px]" />
     </div>
   );
 }
