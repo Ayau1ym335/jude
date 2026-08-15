@@ -20,10 +20,14 @@ backend/services/local_smoothing.py
   клинически провалидированные значения. Требуют калибровки.
 """
 
+import logging
+
 import numpy as np
 import trimesh
 import trimesh.smoothing
 from pygeodesic import geodesic
+
+logger = logging.getLogger(__name__)
 
 
 def compute_falloff_weights(
@@ -198,32 +202,62 @@ def compute_falloff_weights_optimized(
     if len(candidate_indices) == 0:
         return weights
 
-    # Шаг 2: Переиндексация граней — строим submesh
-    # old_to_new[i] = новый индекс вершины i в submesh (или -1, если не входит)
-    old_to_new = np.full(len(mesh.vertices), -1, dtype=np.int64)
-    old_to_new[candidate_indices] = np.arange(len(candidate_indices), dtype=np.int64)
-
-    # Отбираем треугольники, все 3 вершины которых — кандидаты
+    # Шаг 2: Переиндексация граней — строим submesh.
+    # Отбираем треугольники, где все 3 вершины — кандидаты.
     face_mask = np.all(candidate_mask[mesh.faces], axis=1)
     sub_faces_old = mesh.faces[face_mask]   # со старыми индексами
-    sub_faces_new = old_to_new[sub_faces_old]  # с новыми
-    sub_vertices = mesh.vertices[candidate_indices]
 
-    if len(sub_faces_new) == 0:
+    if len(sub_faces_old) == 0:
         # Кандидаты есть, но нет целых треугольников — фолбэк: вес = 1 для центра
         weights[center_vertex_idx] = 1.0
         return weights
 
-    # Шаг 3: PyGeodesicAlgorithmExact на малом submesh
-    # индекс center в submesh
-    center_sub_idx = int(old_to_new[center_vertex_idx])
+    # ВАЖНО: переиндексируем ТОЛЬКО по вершинам, реально используемым в гранях.
+    # PyGeodesicAlgorithmExact требует, чтобы все вершины [0..N-1] встречались
+    # хотя бы в одной грани («numbered sequentially from 0»). Если брать все
+    # candidate_indices — вершины без граней нарушают это требование.
+    used_old_indices = np.unique(sub_faces_old)          # отсортированные уникальные
+    old_to_new = np.full(len(mesh.vertices), -1, dtype=np.int64)
+    old_to_new[used_old_indices] = np.arange(len(used_old_indices), dtype=np.int64)
+
+    sub_faces_new = old_to_new[sub_faces_old]            # индексы 0..len(used)-1
+    sub_vertices = mesh.vertices[used_old_indices]        # только используемые
+
+    # Шаг 3: PyGeodesicAlgorithmExact на малом submesh.
+    # Если center_vertex_idx не попал в used_old_indices (крайний случай — центр
+    # оказался изолированным узлом без граней в submesh), фолбэк к евклидовым весам.
+    center_sub_idx_raw = old_to_new[center_vertex_idx]
+    if center_sub_idx_raw < 0:
+        # Центр не в submesh-гранях — возвращаем вес=1 только для центра
+        weights[center_vertex_idx] = 1.0
+        return weights
+
+    center_sub_idx = int(center_sub_idx_raw)
     source_indices = np.array([center_sub_idx])
-    geoalg = geodesic.PyGeodesicAlgorithmExact(sub_vertices, sub_faces_new)
+
+    # Приводим к типам, которые ожидает pygeodesic:
+    # вершины float64, грани int32, оба массива C-contiguous.
+    sub_vertices_c = np.ascontiguousarray(sub_vertices, dtype=np.float64)
+    sub_faces_c = np.ascontiguousarray(sub_faces_new, dtype=np.int32)
+
+    geoalg = geodesic.PyGeodesicAlgorithmExact(sub_vertices_c, sub_faces_c)
     # target_indices=None: расстояния до всех вершин submesh
     distances_sub, _ = geoalg.geodesicDistances(source_indices, None)
 
-    candidate_weights = np.clip(1.0 - (distances_sub / radius), 0.0, 1.0)
-    weights[candidate_indices] = candidate_weights
+    if distances_sub is None:
+        # Сбой инициализации pygeodesic (не должен происходить после фикса выше,
+        # но оставляем guard). Фолбэк: евклидовы расстояния на submesh.
+        logger.warning(
+            "compute_falloff_weights_optimized: pygeodesic вернул None "
+            "(center_sub_idx=%d, submesh verts=%d, faces=%d). "
+            "Используем евклидовы расстояния как fallback.",
+            center_sub_idx, len(sub_vertices_c), len(sub_faces_c),
+        )
+        center_sub_pt = sub_vertices_c[center_sub_idx]
+        distances_sub = np.linalg.norm(sub_vertices_c - center_sub_pt, axis=1)
+
+    used_weights = np.clip(1.0 - (distances_sub / radius), 0.0, 1.0)
+    weights[used_old_indices] = used_weights
     return weights
 
 

@@ -34,74 +34,63 @@ export default function TrimLineControls({
 }: TrimLineControlsProps) {
   return (
     <div
-      className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-zinc-200 bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/95"
+      className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-jude-border bg-jude-surface/95 px-4 py-2.5 shadow-jude-lg backdrop-blur-md"
       style={{ pointerEvents: "auto" }}
     >
       {/* Статус */}
-      <span className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+      <span className="whitespace-nowrap text-sm text-jude-muted">
         {loading ? (
-          <span className="text-amber-600 dark:text-amber-400">
-            ⏳ Строю кривую…
-          </span>
+          <span className="text-jude-warning">⏳ Строю кривую…</span>
         ) : isDrawing ? (
           pointsCount === 0 ? (
             "Кликните на поверхность"
           ) : (
             <>
               Точек:{" "}
-              <span className="font-semibold text-zinc-950 dark:text-zinc-50">
-                {pointsCount}
-              </span>
+              <span className="font-semibold text-jude-ink">{pointsCount}</span>
             </>
           )
         ) : (
-          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-            ✓ Линия завершена
-          </span>
+          <span className="font-medium text-jude-success">✓ Линия завершена</span>
         )}
       </span>
 
-      {/* Разделитель */}
       {(isDrawing || lineType) && (
-        <span className="text-zinc-300 dark:text-zinc-600 select-none">|</span>
+        <span className="select-none text-jude-border">|</span>
       )}
 
-      {/* Тип линии */}
       {lineType && (
-        <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-mono text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+        <span className="rounded bg-jude-primary-soft px-2 py-0.5 font-mono text-xs text-jude-primary">
           {lineType}
         </span>
       )}
 
-      {/* Отменить последнюю точку */}
       {isDrawing && pointsCount > 0 && (
         <button
           type="button"
           onClick={onUndo}
           disabled={loading}
-          className="rounded-lg border border-zinc-200 bg-white px-3 py-1 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 hover:text-zinc-950 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          className="rounded-lg border border-jude-border bg-jude-surface px-3 py-1 text-sm font-medium text-jude-ink transition-colors hover:bg-jude-surface-muted disabled:opacity-40"
         >
           ↩ Отменить точку
         </button>
       )}
 
-      {/* Завершить линию */}
       {isDrawing && pointsCount >= 2 && (
         <button
           type="button"
           onClick={onFinish}
           disabled={loading}
-          className="rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-40 dark:bg-blue-500 dark:hover:bg-blue-600"
+          className="rounded-lg bg-jude-accent px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-jude-accent-hover disabled:opacity-40"
         >
           Завершить линию
         </button>
       )}
 
-      {/* Отменить всё */}
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-lg px-3 py-1 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+        className="rounded-lg px-3 py-1 text-sm font-medium text-jude-error transition-colors hover:bg-jude-error-soft"
       >
         Отменить всё
       </button>

@@ -47,6 +47,7 @@ interface TrimLinesPanelProps {
   viewerRef: RefObject<ModelViewerHandle | null>;
   scanId: string;
   versionId: string;
+  embedded?: boolean;
 }
 
 // ─── Конфигурация ────────────────────────────────────────────────────────────
@@ -60,9 +61,9 @@ const LINE_LABELS: Record<LineType, string> = {
 const LINE_ORDER: LineType[] = ["proximal", "ankle", "distal"];
 
 const LINE_COLORS: Record<LineType, string> = {
-  proximal: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-  ankle: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  distal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  proximal: "bg-jude-primary-soft text-jude-primary",
+  ankle: "bg-jude-accent-soft text-jude-accent",
+  distal: "bg-jude-success-soft text-jude-success",
 };
 
 // ─── Компонент ───────────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ export default function TrimLinesPanel({
   viewerRef,
   scanId,
   versionId,
+  embedded = false,
 }: TrimLinesPanelProps) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -169,25 +171,29 @@ export default function TrimLinesPanel({
 
   return (
     <>
-      {/* Панель списка линий — правый верхний угол */}
+      {/* Панель списка линий */}
       <div
-        className="absolute right-4 top-4 z-20 w-72 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/95"
+        className={
+          embedded
+            ? "w-full rounded-xl border border-jude-border bg-jude-surface p-3 shadow-jude"
+            : "absolute right-4 top-4 z-20 w-72 rounded-xl border border-jude-border bg-jude-surface/95 p-3 shadow-jude-lg backdrop-blur-md"
+        }
         style={{ pointerEvents: "auto" }}
       >
         {/* Заголовок */}
         <div className="mb-2.5 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          <h3 className="text-sm font-semibold text-jude-ink">
             Линии обрезки PLS
           </h3>
-          <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
+          <span className="text-xs font-medium text-jude-subtle">
             {completedCount}/{LINE_ORDER.length}
           </span>
         </div>
 
         {/* Прогресс-бар */}
-        <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+        <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-jude-bg">
           <div
-            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+            className="h-full rounded-full bg-jude-accent transition-all duration-500"
             style={{ width: `${(completedCount / LINE_ORDER.length) * 100}%` }}
           />
         </div>
@@ -203,8 +209,8 @@ export default function TrimLinesPanel({
                 key={lineType}
                 className={`flex items-center justify-between rounded-lg px-2.5 py-2 transition-colors ${
                   isActive
-                    ? "bg-zinc-100 dark:bg-zinc-800"
-                    : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                    ? "bg-jude-accent-soft"
+                    : "hover:bg-jude-primary-soft"
                 }`}
               >
                 {/* Тип + метка */}
@@ -213,8 +219,8 @@ export default function TrimLinesPanel({
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${
                       isSaved
-                        ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
-                        : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
+                        ? "bg-jude-success-soft text-jude-success"
+                        : "bg-jude-bg text-jude-subtle"
                     }`}
                   >
                     {isSaved ? "✓" : "○"}
@@ -228,7 +234,7 @@ export default function TrimLinesPanel({
                       {lineType}
                     </span>
                     {/* Человекочитаемая метка */}
-                    <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="mt-0.5 truncate text-xs text-jude-muted">
                       {LINE_LABELS[lineType]}
                     </p>
                   </div>
@@ -247,10 +253,10 @@ export default function TrimLinesPanel({
                   }}
                   className={`ml-2 shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                     isActive
-                      ? "bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                      ? "bg-jude-border text-jude-ink hover:bg-jude-border-strong"
                       : isSaved
-                      ? "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                      ? "border border-jude-border bg-jude-surface text-jude-muted hover:bg-jude-surface-muted"
+                      : "bg-jude-accent text-white hover:bg-jude-accent-hover"
                   }`}
                 >
                   {isActive ? "Отменить" : isSaved ? "Перерисовать" : "Нарисовать"}
@@ -262,14 +268,14 @@ export default function TrimLinesPanel({
 
         {/* Подсказка — когда ничего не активно */}
         {!activeLineType && completedCount < LINE_ORDER.length && (
-          <p className="mt-2.5 text-center text-[11px] text-zinc-400 dark:text-zinc-600">
+          <p className="mt-2.5 text-center text-[11px] text-jude-subtle">
             Нажмите «Нарисовать» и кликайте на поверхность меша
           </p>
         )}
 
         {/* Все готово */}
         {completedCount === LINE_ORDER.length && !activeLineType && (
-          <p className="mt-2.5 text-center text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <p className="mt-2.5 text-center text-xs font-medium text-jude-success">
             ✓ Все линии размечены
           </p>
         )}

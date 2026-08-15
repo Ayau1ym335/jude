@@ -37,6 +37,7 @@ interface SmoothingToolProps {
   isPickMode: boolean;
   /** Переключить pick mode снаружи (родитель контролирует ModelViewer pickMode) */
   onTogglePickMode: (active: boolean) => void;
+  embedded?: boolean;
 }
 
 export default function SmoothingTool({
@@ -47,6 +48,7 @@ export default function SmoothingTool({
   pickedPoint,
   isPickMode,
   onTogglePickMode,
+  embedded = false,
 }: SmoothingToolProps) {
   const [radius, setRadius] = useState(15);
   const [intensity, setIntensity] = useState(0.5);
@@ -125,13 +127,19 @@ export default function SmoothingTool({
   }, [isPickMode, onTogglePickMode]);
 
   return (
-    <div className="absolute bottom-16 right-4 z-20 w-72 rounded-xl border border-zinc-200 bg-white/95 p-4 shadow-lg backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/95">
+    <div
+      className={
+        embedded
+          ? "w-full rounded-xl border border-jude-border bg-jude-surface p-4 shadow-jude"
+          : "absolute bottom-16 right-4 z-20 w-72 rounded-xl border border-jude-border bg-jude-surface/95 p-4 shadow-jude-lg backdrop-blur-md"
+      }
+    >
       {/* Заголовок */}
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+        <h3 className="text-sm font-semibold text-jude-ink">
           Сглаживание
         </h3>
-        <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
+        <span className="text-xs font-medium text-jude-subtle">
           Лодыжка / зона отёка
         </span>
       </div>
@@ -143,20 +151,20 @@ export default function SmoothingTool({
           onClick={handleTogglePick}
           className={`w-full rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
             isPickMode
-              ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/40 dark:text-blue-300"
-              : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+              ? "border-jude-accent bg-jude-accent-soft text-jude-accent"
+              : "border-jude-border bg-jude-surface-muted text-jude-muted hover:bg-jude-primary-soft"
           }`}
         >
           {isPickMode ? (
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-jude-accent" />
               Кликните на модель…
             </span>
           ) : pickedPoint ? (
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-              Точка выбрана&nbsp;
-              <span className="font-mono text-[10px] text-zinc-400">
+              <span className="inline-block h-2 w-2 rounded-full bg-jude-success" />
+              Точка выбрана{" "}
+              <span className="font-mono text-[10px] text-jude-subtle">
                 ({pickedPoint.map((v) => v.toFixed(1)).join(", ")})
               </span>
             </span>
@@ -170,10 +178,8 @@ export default function SmoothingTool({
       <div className="mb-3 space-y-2.5">
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <label className="text-xs text-zinc-500 dark:text-zinc-400">
-              Радиус зоны
-            </label>
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="text-xs text-jude-muted">Радиус зоны</label>
+            <span className="text-xs font-medium text-jude-ink">
               {radius}&nbsp;мм
             </span>
           </div>
@@ -184,23 +190,19 @@ export default function SmoothingTool({
             step={1}
             value={radius}
             onChange={(e) => setRadius(Number(e.target.value))}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-200 accent-blue-600 dark:bg-zinc-700"
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-jude-bg"
           />
-          <div className="mt-0.5 flex justify-between text-[10px] text-zinc-400 dark:text-zinc-600">
+          <div className="mt-0.5 flex justify-between text-[10px] text-jude-subtle">
             <span>5</span>
-            <span className="text-zinc-300 dark:text-zinc-700 text-[9px]">
-              ⚠ не клинически провалидировано
-            </span>
+            <span className="text-[9px]">⚠ не клинически провалидировано</span>
             <span>40</span>
           </div>
         </div>
 
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <label className="text-xs text-zinc-500 dark:text-zinc-400">
-              Сила сглаживания
-            </label>
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="text-xs text-jude-muted">Сила сглаживания</label>
+            <span className="text-xs font-medium text-jude-ink">
               {Math.round(intensity * 100)}%
             </span>
           </div>
@@ -211,7 +213,7 @@ export default function SmoothingTool({
             step={0.05}
             value={intensity}
             onChange={(e) => setIntensity(Number(e.target.value))}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-200 accent-blue-600 dark:bg-zinc-700"
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-jude-bg"
           />
         </div>
       </div>
@@ -221,7 +223,7 @@ export default function SmoothingTool({
         type="button"
         onClick={handleApply}
         disabled={!pickedPoint || applying}
-        className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-500 dark:hover:bg-blue-600"
+        className="w-full rounded-lg bg-jude-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-jude-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {applying ? (
           <span className="flex items-center justify-center gap-2">
@@ -235,11 +237,11 @@ export default function SmoothingTool({
 
       {/* Результат */}
       {lastResult && (
-        <div className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 dark:border-emerald-700/50 dark:bg-emerald-900/20">
-          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+        <div className="mt-2.5 rounded-lg border border-jude-success/20 bg-jude-success-soft px-3 py-2">
+          <p className="text-xs font-medium text-jude-success">
             Сглаживание применено
           </p>
-          <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-500">
+          <p className="mt-0.5 text-[11px] text-jude-success/80">
             Смещено вершин: {lastResult.movedVertices}
           </p>
         </div>
@@ -247,13 +249,9 @@ export default function SmoothingTool({
 
       {/* Ошибка */}
       {lastError && (
-        <div className="mt-2.5 rounded-lg border border-red-200 bg-red-50/80 px-3 py-2 dark:border-red-700/50 dark:bg-red-900/20">
-          <p className="text-xs font-medium text-red-600 dark:text-red-400">
-            Ошибка
-          </p>
-          <p className="mt-0.5 text-[11px] text-red-500 dark:text-red-500">
-            {lastError}
-          </p>
+        <div className="mt-2.5 rounded-lg border border-jude-error/20 bg-jude-error-soft px-3 py-2">
+          <p className="text-xs font-medium text-jude-error">Ошибка</p>
+          <p className="mt-0.5 text-[11px] text-jude-error/80">{lastError}</p>
         </div>
       )}
     </div>

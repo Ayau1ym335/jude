@@ -6,6 +6,14 @@ import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
 import { ModelViewer } from "@/components/ModelViewer";
+import PatientPicker from "@/components/PatientPicker";
+import PageHeader from "@/components/ui/PageHeader";
+import Card from "@/components/ui/Card";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Progress from "@/components/ui/Progress";
+import Spinner from "@/components/ui/Spinner";
 
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["stl", "obj", "ply"]);
@@ -30,7 +38,7 @@ function uploadToStorageWithProgress(
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !anonKey) {
-    return Promise.reject(new Error("Supabase env is not configured"));
+    return Promise.reject(new Error("Supabase не настроен"));
   }
 
   const encodedPath = path
@@ -53,9 +61,7 @@ function uploadToStorageWithProgress(
     );
 
     xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable || event.total === 0) {
-        return;
-      }
+      if (!event.lengthComputable || event.total === 0) return;
       onProgress(Math.round((event.loaded / event.total) * 100));
     };
 
@@ -74,7 +80,7 @@ function uploadToStorageWithProgress(
         return;
       }
 
-      let message = `Upload failed (${xhr.status})`;
+      let message = `Ошибка загрузки (${xhr.status})`;
       try {
         const body = JSON.parse(xhr.responseText) as {
           message?: string;
@@ -82,12 +88,12 @@ function uploadToStorageWithProgress(
         };
         message = body.message || body.error || message;
       } catch {
-        // keep default message
+        // keep default
       }
       reject(new Error(message));
     };
 
-    xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.onerror = () => reject(new Error("Ошибка загрузки"));
     xhr.send(file);
   });
 }
@@ -104,6 +110,7 @@ export default function UploadScanPage() {
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSession() {
@@ -122,6 +129,7 @@ export default function UploadScanPage() {
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null;
     setUploadedPath(null);
+    setCreatedProjectId(null);
 
     if (!selected) {
       setFile(null);
@@ -134,7 +142,7 @@ export default function UploadScanPage() {
     if (!ALLOWED_EXTENSIONS.has(extension)) {
       setFile(null);
       setStatus("error");
-      setErrorMessage("Unsupported file");
+      setErrorMessage("Неподдерживаемый формат файла");
       event.target.value = "";
       return;
     }
@@ -142,7 +150,7 @@ export default function UploadScanPage() {
     if (selected.size > MAX_FILE_SIZE_BYTES) {
       setFile(null);
       setStatus("error");
-      setErrorMessage("File too large");
+      setErrorMessage("Файл слишком большой (макс. 100 МБ)");
       event.target.value = "";
       return;
     }
@@ -154,9 +162,7 @@ export default function UploadScanPage() {
   }
 
   async function runUpload() {
-    if (!file || !session) {
-      return;
-    }
+    if (!file || !session || !patientId.trim()) return;
 
     const extension = getExtension(file.name) as FileFormat;
     const path = `${patientId.trim()}/${file.name}`;
@@ -165,6 +171,7 @@ export default function UploadScanPage() {
     setProgress(0);
     setErrorMessage(null);
     setUploadedPath(null);
+    setCreatedProjectId(null);
 
     try {
       const storedPath = await uploadToStorageWithProgress(
@@ -176,7 +183,7 @@ export default function UploadScanPage() {
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       if (!apiUrl) {
-        throw new Error("NEXT_PUBLIC_API_URL is not configured");
+        throw new Error("NEXT_PUBLIC_API_URL не настроен");
       }
 
       const response = await fetch(`${apiUrl}/scans`, {
@@ -193,13 +200,10 @@ export default function UploadScanPage() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Scan upload failed");
-      }
-      
-      const scanData = await response.json();
+      if (!response.ok) throw new Error("Не удалось сохранить скан");
 
-      // Создаем проект, привязанный к загруженному скану
+      const scanData = (await response.json()) as { id: string };
+
       const projectResponse = await fetch(`${apiUrl}/projects`, {
         method: "POST",
         headers: {
@@ -209,20 +213,23 @@ export default function UploadScanPage() {
         body: JSON.stringify({
           patient_id: patientId.trim(),
           scan_id: scanData.id,
-          afo_type: "posterior_leaf_spring", // Значение по умолчанию для MVP
+          afo_type: "posterior_leaf_spring",
         }),
       });
 
-      if (!projectResponse.ok) {
-        throw new Error("Project creation failed");
-      }
+      if (!projectResponse.ok) throw new Error("Не удалось создать проект");
+
+      const projectData = (await projectResponse.json()) as { id: string };
 
       setUploadedPath(storedPath);
+      setCreatedProjectId(projectData.id);
       setProgress(100);
       setStatus("success");
-    } catch {
+    } catch (err) {
       setStatus("error");
-      setErrorMessage("Upload failed");
+      setErrorMessage(
+        err instanceof Error ? err.message : "Ошибка загрузки",
+      );
     }
   }
 
@@ -232,11 +239,7 @@ export default function UploadScanPage() {
   }
 
   if (authLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-        <p className="text-zinc-600 dark:text-zinc-400">Loading...</p>
-      </div>
-    );
+    return <Spinner className="flex-1 py-24" />;
   }
 
   const canUpload =
@@ -246,100 +249,104 @@ export default function UploadScanPage() {
     status !== "success";
 
   const showRetry = status === "error" && Boolean(file);
-  const buttonDisabled =
-    status === "uploading" || (!showRetry && !canUpload);
+  const buttonDisabled = status === "uploading" || (!showRetry && !canUpload);
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 dark:bg-black">
-      <main className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-          Upload Scan
-        </h1>
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Загрузка скана"
+        description="STL, OBJ или PLY — до 100 МБ"
+      />
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Patient ID
-            <input
-              type="text"
-              value={patientId}
-              onChange={(event) => setPatientId(event.target.value)}
-              required
-              placeholder="00000000-0000-0000-0000-000000000000"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-            />
-          </label>
+      <div className="mx-auto w-full max-w-lg">
+        <Card>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {session ? (
+              <PatientPicker
+                accessToken={session.access_token}
+                value={patientId}
+                onChange={setPatientId}
+              />
+            ) : null}
 
-          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Тип скана
-            <select
+            <Select
+              label="Тип скана"
               value={scanSource}
               onChange={(event) =>
                 setScanSource(event.target.value as ScanSource)
               }
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
             >
               <option value="patient_direct">Прямой скан пациента</option>
               <option value="cast_negative">Скан гипсового слепка (негатив)</option>
-            </select>
-          </label>
+            </Select>
 
-          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Scan file
-            <input
-              type="file"
-              accept=".stl,.obj,.ply"
-              onChange={handleFileChange}
-              className="text-sm font-normal text-zinc-950 file:mr-3 file:rounded-full file:border-0 file:bg-zinc-100 file:px-4 file:py-2 file:text-sm file:font-medium dark:text-zinc-50 dark:file:bg-zinc-800"
-            />
-          </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-jude-ink">Файл скана</span>
+              <input
+                type="file"
+                accept=".stl,.obj,.ply"
+                onChange={handleFileChange}
+                className="text-sm text-jude-muted file:mr-3 file:rounded-lg file:border-0 file:bg-jude-primary-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-jude-primary"
+              />
+            </label>
 
-          {file ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Selected: {file.name}
-              </p>
-              <ModelViewer file={file} />
-            </div>
-          ) : null}
+            {file ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-jude-muted">Выбран: {file.name}</p>
+                <div className="overflow-hidden rounded-xl border border-jude-border bg-jude-canvas">
+                  <ModelViewer file={file} />
+                </div>
+              </div>
+            ) : null}
 
-          {status === "uploading" ? (
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              Uploading... {progress}%
-            </p>
-          ) : null}
+            {status === "uploading" ? (
+              <Progress value={progress} label="Загрузка..." />
+            ) : null}
 
-          {status === "success" && uploadedPath ? (
-            <p className="text-sm text-green-700 dark:text-green-400">
-              Success: {uploadedPath}
-            </p>
-          ) : null}
+            {status === "success" && uploadedPath ? (
+              <Alert variant="success">
+                <p>Скан загружен: {uploadedPath}</p>
+                {createdProjectId ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() =>
+                      router.push(`/projects/${createdProjectId}/viewer`)
+                    }
+                  >
+                    Открыть проект
+                  </Button>
+                ) : null}
+              </Alert>
+            ) : null}
 
-          {errorMessage ? (
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {errorMessage}
-            </p>
-          ) : null}
+            {errorMessage ? <Alert variant="error">{errorMessage}</Alert> : null}
 
-          {showRetry ? (
-            <button
-              type="button"
-              onClick={() => void runUpload()}
-              disabled={!patientId.trim()}
-              className="mt-2 rounded-full bg-zinc-950 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-            >
-              Retry
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={buttonDisabled}
-              className="mt-2 rounded-full bg-zinc-950 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-            >
-              Upload
-            </button>
-          )}
-        </form>
-      </main>
+            {showRetry ? (
+              <Button
+                type="button"
+                variant="accent"
+                onClick={() => void runUpload()}
+                disabled={!patientId.trim()}
+                className="w-full"
+              >
+                Повторить
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                variant="accent"
+                disabled={buttonDisabled}
+                className="w-full"
+              >
+                Загрузить
+              </Button>
+            )}
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

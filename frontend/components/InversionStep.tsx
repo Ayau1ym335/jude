@@ -19,6 +19,7 @@ interface InversionStepProps {
   scanSource: string;
   sessionToken: string;
   onInverted: (newMeshUrl: string) => void;
+  embedded?: boolean;
 }
 
 export default function InversionStep({
@@ -27,6 +28,7 @@ export default function InversionStep({
   scanSource,
   sessionToken,
   onInverted,
+  embedded = false,
 }: InversionStepProps) {
   const [applying, setApplying] = useState(false);
   const [materialThickness, setMaterialThickness] = useState(4.0);
@@ -91,19 +93,25 @@ export default function InversionStep({
   };
 
   return (
-    <div className="absolute left-4 top-4 z-20 w-72 rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 shadow-sm backdrop-blur-md dark:border-amber-700/50 dark:bg-amber-900/30">
+    <div
+      className={
+        embedded
+          ? "w-full rounded-xl border border-jude-warning/30 bg-jude-warning-soft px-4 py-3 shadow-jude"
+          : "absolute left-4 top-4 z-20 w-72 rounded-xl border border-jude-warning/30 bg-jude-warning-soft/95 px-4 py-3 shadow-jude backdrop-blur-md"
+      }
+    >
       {/* Заголовок */}
-      <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+      <p className="text-sm font-semibold text-jude-warning">
         Скан гипсового слепка
       </p>
-      <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+      <p className="mt-1 text-xs text-jude-warning/80">
         Перед ректификацией необходимо инвертировать форму и учесть толщину
         материала ортеза.
       </p>
 
       {/* Слайдер толщины */}
       <div className="mt-3">
-        <label className="flex items-center justify-between text-xs font-medium text-amber-800 dark:text-amber-300">
+        <label className="flex items-center justify-between text-xs font-medium text-jude-warning">
           <span>Толщина материала</span>
           <span className="font-semibold">{materialThickness.toFixed(1)} мм</span>
         </label>
@@ -115,9 +123,9 @@ export default function InversionStep({
           value={materialThickness}
           onChange={(e) => setMaterialThickness(Number(e.target.value))}
           disabled={applying}
-          className="mt-1.5 w-full accent-amber-600 disabled:opacity-50"
+          className="mt-1.5 w-full disabled:opacity-50"
         />
-        <div className="flex justify-between text-xs text-amber-600/70 dark:text-amber-500/70">
+        <div className="flex justify-between text-xs text-jude-warning/70">
           <span>2 мм</span>
           <span>8 мм</span>
         </div>
@@ -128,7 +136,7 @@ export default function InversionStep({
         type="button"
         onClick={() => void handleApply()}
         disabled={applying}
-        className="mt-3 w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-500 dark:hover:bg-amber-600"
+        className="mt-3 w-full rounded-lg bg-jude-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-jude-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
         {applying ? (
           <span className="flex items-center justify-center gap-2">
@@ -140,16 +148,14 @@ export default function InversionStep({
         )}
       </button>
 
-      {/* Предупреждение от backend (зоны коррекции > 2%) */}
       {warning && (
-        <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1.5 text-xs text-amber-800 dark:bg-amber-800/30 dark:text-amber-300">
+        <p className="mt-2 rounded-lg bg-jude-warning-soft px-2 py-1.5 text-xs text-jude-warning">
           ⚠ {warning}
         </p>
       )}
 
-      {/* Ошибка API */}
       {apiError && (
-        <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-400">
+        <p className="mt-2 rounded-lg bg-jude-error-soft px-2 py-1.5 text-xs text-jude-error">
           {apiError}
         </p>
       )}

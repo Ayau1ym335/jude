@@ -1,12 +1,16 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/cn";
+import Button from "@/components/ui/Button";
 
 const NAV_ITEMS = [
+  { href: "/dashboard", label: "Главная" },
   { href: "/patients", label: "Пациенты" },
   { href: "/upload", label: "Загрузка скана" },
 ];
@@ -31,61 +35,69 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push("/login");
   }
 
-  return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-black">
-      {/* Sidebar */}
-      <aside className="flex w-60 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-        {/* Brand */}
-        <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-          <span className="text-base font-semibold text-zinc-950 dark:text-zinc-50">
-            AFO Platform
-          </span>
-        </div>
+  const isViewer = pathname.includes("/viewer");
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-0.5">
+  return (
+    <div className="flex min-h-screen flex-col bg-jude-bg">
+      <header className="sticky top-0 z-50 border-b border-jude-border bg-jude-surface/95 shadow-jude-sm backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-8 px-6">
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5">
+            <Image
+              src="/jude-logo.png"
+              alt="JUDE"
+              width={32}
+              height={32}
+              className="h-8 w-8"
+              priority
+            />
+            <span className="font-brand text-lg tracking-[0.2em] text-jude-accent uppercase">
+              JUDE
+            </span>
+          </Link>
+
+          <nav className="flex flex-1 items-center gap-1">
             {NAV_ITEMS.map((item) => {
               const active =
                 pathname === item.href ||
-                (item.href !== "/" && pathname.startsWith(item.href));
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
               return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-zinc-100 text-zinc-950 dark:bg-zinc-800 dark:text-zinc-50"
-                        : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-jude-accent-soft text-jude-accent"
+                      : "text-jude-muted hover:bg-jude-primary-soft hover:text-jude-ink",
+                  )}
+                >
+                  {item.label}
+                </Link>
               );
             })}
-          </ul>
-        </nav>
+          </nav>
 
-        {/* User section */}
-        <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          {email && (
-            <p className="mb-2 truncate text-xs text-zinc-400 dark:text-zinc-600">
-              {email}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
-          >
-            Выйти
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            {email ? (
+              <span className="hidden max-w-[200px] truncate text-xs text-jude-subtle xl:block">
+                {email}
+              </span>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              Выйти
+            </Button>
+          </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main content */}
-      <main className="flex flex-1 flex-col overflow-auto">{children}</main>
+      <main
+        className={cn(
+          "mx-auto flex w-full flex-1 flex-col",
+          isViewer ? "max-w-none" : "max-w-[1600px] px-6 py-8",
+        )}
+      >
+        {children}
+      </main>
     </div>
   );
 }

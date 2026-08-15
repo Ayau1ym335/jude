@@ -65,7 +65,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
 
     // Setup scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf4f4f5); // match bg-zinc-50
+    scene.background = new THREE.Color(0xe8e8ec); // jude-canvas
     sceneRef.current = scene;
 
     const width = container.clientWidth;
@@ -342,13 +342,13 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
   return (
     <div className="relative w-full overflow-hidden">
       {loading && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/5 dark:bg-white/5 z-10">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Loading model...</p>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-jude-canvas/80">
+          <p className="text-sm font-medium text-jude-muted">Загрузка модели...</p>
         </div>
       )}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-50 dark:bg-red-950/20 z-10">
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">{error}</p>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-jude-error-soft">
+          <p className="text-sm font-medium text-jude-error">{error}</p>
         </div>
       )}
       <div ref={containerRef} className="h-full w-full min-h-[500px]" />

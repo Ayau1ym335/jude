@@ -1,9 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Alert from "@/components/ui/Alert";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,50 +38,55 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 dark:bg-black">
-      <main className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-          Login
-        </h1>
+    <div className="flex flex-1 items-center justify-center bg-jude-bg px-4 py-16">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <Image
+            src="/jude-logo.png"
+            alt="JUDE"
+            width={56}
+            height={56}
+            className="h-14 w-14"
+            priority
+          />
+          <h1 className="font-brand text-3xl tracking-[0.25em] text-jude-accent uppercase">
+            JUDE
+          </h1>
+          <p className="text-sm text-jude-muted">
+            Платформа ортезирования для клиники
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Email
-            <input
+        <Card>
+          <h2 className="mb-6 text-xl font-semibold text-jude-ink">Вход</h2>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Input
+              label="Email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
               autoComplete="email"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
             />
-          </label>
 
-          <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Password
-            <input
+            <Input
+              label="Пароль"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
               autoComplete="current-password"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
             />
-          </label>
 
-          {error ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          ) : null}
+            {error ? <Alert variant="error">{error}</Alert> : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 rounded-full bg-zinc-950 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
-      </main>
+            <Button type="submit" variant="accent" size="lg" disabled={loading} className="mt-2 w-full">
+              {loading ? "Вход..." : "Войти"}
+            </Button>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

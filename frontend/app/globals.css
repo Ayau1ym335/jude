@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --jude-bg: #f5f5f7;
+  --jude-surface: #ffffff;
+  --jude-surface-muted: #fafafa;
+  --jude-primary: #723028;
+  --jude-primary-hover: #5a2620;
+  --jude-accent: #9e1312;
+  --jude-accent-hover: #7e0f0e;
+  --jude-ink: #040403;
+  --jude-muted: rgba(4, 4, 3, 0.55);
+  --jude-subtle: rgba(4, 4, 3, 0.35);
+  --jude-border: rgba(4, 4, 3, 0.1);
+  --jude-border-strong: rgba(4, 4, 3, 0.16);
+  --jude-canvas: #e8e8ec;
+  --jude-primary-soft: rgba(114, 48, 40, 0.08);
+  --jude-accent-soft: rgba(158, 19, 18, 0.08);
+  --jude-success: #1a6b42;
+  --jude-success-soft: rgba(26, 107, 66, 0.1);
+  --jude-warning: #8a5a00;
+  --jude-warning-soft: rgba(138, 90, 0, 0.1);
+  --jude-error: #9e1312;
+  --jude-error-soft: rgba(158, 19, 18, 0.08);
+  --jude-shadow-sm: 0 1px 2px rgba(4, 4, 3, 0.06);
+  --jude-shadow: 0 1px 3px rgba(4, 4, 3, 0.08), 0 4px 12px rgba(4, 4, 3, 0.04);
+  --jude-shadow-lg: 0 8px 32px rgba(4, 4, 3, 0.1);
+  --jude-radius: 0.75rem;
+  --jude-radius-lg: 1rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-jude-bg: var(--jude-bg);
+  --color-jude-surface: var(--jude-surface);
+  --color-jude-surface-muted: var(--jude-surface-muted);
+  --color-jude-primary: var(--jude-primary);
+  --color-jude-primary-hover: var(--jude-primary-hover);
+  --color-jude-accent: var(--jude-accent);
+  --color-jude-accent-hover: var(--jude-accent-hover);
+  --color-jude-ink: var(--jude-ink);
+  --color-jude-muted: var(--jude-muted);
+  --color-jude-subtle: var(--jude-subtle);
+  --color-jude-border: var(--jude-border);
+  --color-jude-border-strong: var(--jude-border-strong);
+  --color-jude-canvas: var(--jude-canvas);
+  --color-jude-primary-soft: var(--jude-primary-soft);
+  --color-jude-accent-soft: var(--jude-accent-soft);
+  --color-jude-success: var(--jude-success);
+  --color-jude-success-soft: var(--jude-success-soft);
+  --color-jude-warning: var(--jude-warning);
+  --color-jude-warning-soft: var(--jude-warning-soft);
+  --color-jude-error: var(--jude-error);
+  --color-jude-error-soft: var(--jude-error-soft);
+  --font-brand: var(--font-michroma), sans-serif;
+  --font-heading: var(--font-roboto), system-ui, sans-serif;
+  --font-sans: var(--font-roboto), system-ui, sans-serif;
+  --font-mono: var(--font-roboto-mono), ui-monospace, monospace;
+  --shadow-jude: var(--jude-shadow);
+  --shadow-jude-lg: var(--jude-shadow-lg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--jude-bg);
+  color: var(--jude-ink);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--jude-accent-soft);
+  color: var(--jude-ink);
+}
+
+input[type="range"] {
+  accent-color: var(--jude-accent);
+}
+
+/* Michroma — только латиница (бренд JUDE). Кириллица — Roboto heading. */
+.font-brand {
+  font-family: var(--font-brand);
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-feature-settings: "kern" 1;
 }

@@ -5,6 +5,13 @@ import { useRouter, useParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
+import { SIDE_LABELS, type PatientSide } from "@/lib/patients";
+import PageHeader from "@/components/ui/PageHeader";
+import Card, { CardTitle } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Alert from "@/components/ui/Alert";
+import Spinner from "@/components/ui/Spinner";
+import Button from "@/components/ui/Button";
 
 interface Patient {
   id: string;
@@ -29,24 +36,12 @@ const STATUS_LABELS: Record<string, string> = {
   manufactured: "Изготовлен",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  in_progress: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  exported: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  manufactured: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+const STATUS_VARIANT: Record<string, "warning" | "accent" | "success" | "muted"> = {
+  in_progress: "warning",
+  exported: "accent",
+  manufactured: "success",
 };
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] ?? "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"}`}
-    >
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  );
-}
-
-// Показывает индикатор только если скан ещё не провалидирован или невалиден.
-// Для valid — ничего не отображается, чтобы не засорять интерфейс.
 function ScanStatusIndicator({
   status,
 }: {
@@ -54,18 +49,10 @@ function ScanStatusIndicator({
 }) {
   if (!status || status === "valid") return null;
   if (status === "pending") {
-    return (
-      <span className="rounded px-2 py-0.5 text-xs text-yellow-700 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-400">
-        Обработка скана...
-      </span>
-    );
+    return <Badge variant="warning">Обработка скана...</Badge>;
   }
   if (status === "invalid") {
-    return (
-      <span className="rounded px-2 py-0.5 text-xs text-red-700 bg-red-50 dark:bg-red-900/30 dark:text-red-400">
-        Скан не прошёл валидацию
-      </span>
-    );
+    return <Badge variant="error">Скан не прошёл валидацию</Badge>;
   }
   return null;
 }
@@ -124,7 +111,6 @@ export default function PatientDetailPage() {
           const pData = await projectsRes.json();
           setProjects(Array.isArray(pData) ? pData : (pData.items ?? []));
         }
-        // 404 для /projects?patient_id — означает просто отсутствие проектов
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ошибка загрузки данных");
       } finally {
@@ -136,89 +122,80 @@ export default function PatientDetailPage() {
   }, [session, patientId]);
 
   if (authLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-        <p className="text-zinc-600 dark:text-zinc-400">Загрузка...</p>
-      </div>
-    );
+    return <Spinner className="flex-1 py-24" />;
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
-      <div className="mx-auto w-full max-w-4xl px-4 py-8">
-        <h1 className="mb-4 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-          Пациент
-        </h1>
-        {loading && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Загрузка...</p>
-        )}
-        {error && (
-          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-950/20 dark:text-red-400">
-            {error}
-          </p>
-        )}
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Пациент"
+        action={
+          <Button variant="ghost" size="sm" onClick={() => router.push("/patients")}>
+            ← К списку
+          </Button>
+        }
+      />
 
-        {!loading && !error && patient && (
-          <>
-            <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-                {patient.anonymized_identifier}
-              </h1>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Сторона: {patient.side ?? "не указана"}
+      {loading && <Spinner className="py-12" />}
+      {error && <Alert variant="error">{error}</Alert>}
+
+      {!loading && !error && patient && (
+        <>
+          <Card className="mb-8">
+            <h2 className="text-2xl font-semibold text-jude-ink">
+              {patient.anonymized_identifier}
+            </h2>
+              <p className="mt-1 text-sm text-jude-muted">
+                Сторона:{" "}
+                {patient.side
+                  ? (SIDE_LABELS[patient.side as PatientSide] ?? patient.side)
+                  : "не указана"}
               </p>
-              <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-600">
-                Создан:{" "}
-                {new Date(patient.created_at).toLocaleDateString("ru-RU")}
-              </p>
-            </div>
+            <p className="mt-0.5 font-mono text-xs text-jude-subtle">
+              Создан: {new Date(patient.created_at).toLocaleDateString("ru-RU")}
+            </p>
+          </Card>
 
-            <div>
-              <h2 className="mb-3 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                Проекты
-              </h2>
+          <div>
+            <CardTitle className="mb-3">Проекты</CardTitle>
 
-              {projects.length === 0 ? (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Проектов пока нет.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {projects.map((project) => (
-                    <li key={project.id}>
-                      <button
-                        type="button"
-                        className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-                        onClick={() =>
-                          router.push(`/projects/${project.id}/viewer`)
-                        }
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
-                            {project.afo_type ?? "AFO"}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <ScanStatusIndicator
-                              status={project.scan_validation_status}
-                            />
-                            <StatusBadge status={project.status} />
-                          </div>
+            {projects.length === 0 ? (
+              <p className="text-sm text-jude-muted">Проектов пока нет.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {projects.map((project) => (
+                  <li key={project.id}>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border border-jude-border bg-jude-surface p-4 text-left shadow-jude transition-colors hover:bg-jude-surface-muted"
+                      onClick={() =>
+                        router.push(`/projects/${project.id}/viewer`)
+                      }
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-jude-ink">
+                          {project.afo_type ?? "AFO"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <ScanStatusIndicator
+                            status={project.scan_validation_status}
+                          />
+                          <Badge variant={STATUS_VARIANT[project.status] ?? "muted"}>
+                            {STATUS_LABELS[project.status] ?? project.status}
+                          </Badge>
                         </div>
-                        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">
-                          Создан:{" "}
-                          {new Date(project.created_at).toLocaleDateString(
-                            "ru-RU",
-                          )}
-                        </p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+                      </div>
+                      <p className="mt-1 font-mono text-xs text-jude-subtle">
+                        {new Date(project.created_at).toLocaleDateString("ru-RU")}
+                      </p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

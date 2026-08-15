@@ -9,6 +9,9 @@ import { ModelViewer, type ModelViewerHandle } from "@/components/ModelViewer";
 import TrimLinesPanel from "@/components/TrimLinesPanel";
 import SmoothingTool from "@/components/SmoothingTool";
 import InversionStep from "@/components/InversionStep";
+import Button from "@/components/ui/Button";
+import Spinner from "@/components/ui/Spinner";
+import Badge from "@/components/ui/Badge";
 
 interface ScanData {
   id: string;
@@ -38,23 +41,21 @@ interface ProjectVersionData {
 
 function ScanMetadataPanel({ scan }: { scan: ScanData }) {
   return (
-    <div className="absolute left-4 top-4 z-20 rounded-xl border border-zinc-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/90">
-      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+    <div className="absolute left-4 top-4 z-20 rounded-xl border border-jude-border bg-jude-surface/95 px-3 py-2 shadow-jude backdrop-blur-md">
+      <p className="text-xs font-medium text-jude-muted">
         Загружен:{" "}
-        <span className="text-zinc-950 dark:text-zinc-50">
+        <span className="text-jude-ink">
           {new Date(scan.uploaded_at).toLocaleDateString("ru-RU")}
         </span>
       </p>
-      <p className="mt-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+      <p className="mt-0.5 text-xs font-medium text-jude-muted">
         Формат:{" "}
-        <span className="text-zinc-950 dark:text-zinc-50">
+        <span className="font-mono text-jude-ink">
           {scan.file_format.toUpperCase()}
         </span>
       </p>
       {scan.preview_mesh_url && (
-        <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-600">
-          Превью-меш
-        </p>
+        <p className="mt-0.5 text-xs text-jude-subtle">Превью-меш</p>
       )}
     </div>
   );
@@ -262,135 +263,140 @@ export default function ProjectViewerPage() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   if (authLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-        <p className="text-zinc-600 dark:text-zinc-400">Загрузка...</p>
-      </div>
-    );
+    return <Spinner className="flex-1 py-24" />;
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black h-[100dvh]">
-      <div className="flex flex-1 flex-col w-full h-full px-4 py-4 max-w-none">
-        {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="text-sm font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-1">
+      {/* Canvas area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-3 border-b border-jude-border px-4 py-3">
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            ← Назад
+          </Button>
+          {project && (
+            <span className="text-sm text-jude-muted">
+              {project.afo_type}
+            </span>
+          )}
+          {scan && (
+            <Badge
+              variant={
+                scan.validation_status === "valid"
+                  ? "success"
+                  : scan.validation_status === "invalid"
+                    ? "error"
+                    : "warning"
+              }
             >
-              ← Назад
-            </button>
-            {project && (
-              <span className="text-sm text-zinc-400 dark:text-zinc-600">
-                / {project.afo_type}
-              </span>
-            )}
-          </div>
+              {scan.validation_status === "valid"
+                ? "Скан валиден"
+                : scan.validation_status === "invalid"
+                  ? "Скан невалиден"
+                  : "Проверка скана"}
+            </Badge>
+          )}
         </div>
 
-        {/* Viewer card */}
-        <div className="relative flex-1 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="relative flex-1 bg-jude-canvas">
           {loading && (
-            <div className="flex h-96 items-center justify-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {scan ? "Загрузка файла скана..." : "Загрузка данных..."}
-              </p>
+            <div className="flex h-full items-center justify-center">
+              <Spinner label={scan ? "Загрузка файла скана..." : "Загрузка данных..."} />
             </div>
           )}
           {error && (
-            <div className="flex h-48 items-center justify-center">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-jude-error">{error}</p>
             </div>
           )}
 
           {!loading && !error && scanFile && (
             <>
-              {/* Панель метаданных — левый верхний угол */}
               {scan && <ScanMetadataPanel scan={scan} />}
 
-              {/* Нижняя панель кнопок */}
-              <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
+              <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2">
                 {previousScanFile && (
-                  <button
-                    type="button"
-                    onClick={handleUndo}
-                    className="rounded-full border border-zinc-300 bg-white/90 px-4 py-2 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur-md transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800/90 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                  >
+                  <Button variant="secondary" size="sm" onClick={handleUndo}>
                     ↩ Отменить
-                  </button>
+                  </Button>
                 )}
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => viewerRef.current?.resetView()}
-                  className="rounded-full bg-zinc-900/80 px-4 py-2 text-xs font-medium text-white shadow-sm backdrop-blur-md transition-colors hover:bg-zinc-800 dark:bg-zinc-100/90 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
                   Сбросить вид
-                </button>
+                </Button>
               </div>
 
-              {/* 3D-вьюер */}
               <ModelViewer
                 ref={viewerRef}
                 file={scanFile}
                 onMeshClick={handleMeshClick}
                 pickMode={smoothingPickMode}
               />
-
-              {/* Панель инверсии слепка — только для cast_negative, перед ректификацией */}
-              {scan && version && session && (
-                <InversionStep
-                  scanId={scan.id}
-                  versionId={version.id}
-                  scanSource={scan.scan_source}
-                  sessionToken={session.access_token}
-                  onInverted={handleSmoothingApplied}
-                />
-              )}
-
-              {/* Панель трёх PLS-линий обрезки */}
-              {scan && version ? (
-                <TrimLinesPanel
-                  viewerRef={viewerRef}
-                  scanId={scan.id}
-                  versionId={version.id}
-                />
-              ) : scan && !version ? (
-                /* Версия ещё не создана — показываем информационную плашку с кнопкой */
-                <div className="absolute right-4 top-4 z-20 rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 shadow-sm backdrop-blur-md dark:border-amber-700/50 dark:bg-amber-900/30 max-w-xs">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                    Версия проекта не найдена
-                  </p>
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                    Создайте базовую версию из скана, чтобы начать работу с разметкой линий.
-                  </p>
-                  <button
-                    onClick={handleCreateVersion}
-                    disabled={creatingVersion}
-                    className="mt-3 w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-500 dark:hover:bg-amber-600"
-                  >
-                    {creatingVersion ? "Создание..." : "Создать версию"}
-                  </button>
-                </div>
-              ) : null}
-
-              {/* Панель сглаживания */}
-              {scan && version && (
-                <SmoothingTool
-                  viewerRef={viewerRef}
-                  scanId={scan.id}
-                  versionId={version.id}
-                  onApplied={handleSmoothingApplied}
-                  pickedPoint={smoothingPickedPoint}
-                  isPickMode={smoothingPickMode}
-                  onTogglePickMode={setSmoothingPickMode}
-                />
-              )}
             </>
           )}
         </div>
       </div>
+
+      {/* Right tools panel */}
+      <aside className="flex w-[340px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-jude-border bg-jude-surface p-4 shadow-jude-sm">
+        <h2 className="font-heading text-sm text-jude-primary">
+          Инструменты
+        </h2>
+
+        {scan && version && session && (
+          <InversionStep
+            scanId={scan.id}
+            versionId={version.id}
+            scanSource={scan.scan_source}
+            sessionToken={session.access_token}
+            onInverted={handleSmoothingApplied}
+            embedded
+          />
+        )}
+
+        {scan && version ? (
+          <TrimLinesPanel
+            viewerRef={viewerRef}
+            scanId={scan.id}
+            versionId={version.id}
+            embedded
+          />
+        ) : scan && !version ? (
+          <div className="rounded-xl border border-jude-warning/30 bg-jude-warning-soft p-4 shadow-jude">
+            <p className="text-sm font-medium text-jude-warning">
+              Версия проекта не найдена
+            </p>
+            <p className="mt-1 text-xs text-jude-warning/80">
+              Создайте базовую версию из скана, чтобы начать работу с разметкой линий.
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={handleCreateVersion}
+              disabled={creatingVersion}
+            >
+              {creatingVersion ? "Создание..." : "Создать версию"}
+            </Button>
+          </div>
+        ) : null}
+
+        {scan && version && (
+          <SmoothingTool
+            viewerRef={viewerRef}
+            scanId={scan.id}
+            versionId={version.id}
+            onApplied={handleSmoothingApplied}
+            pickedPoint={smoothingPickedPoint}
+            isPickMode={smoothingPickMode}
+            onTogglePickMode={setSmoothingPickMode}
+            embedded
+          />
+        )}
+      </aside>
     </div>
   );
 }

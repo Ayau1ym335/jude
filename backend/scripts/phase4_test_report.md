@@ -1,5 +1,5 @@
 # Репорт тестирования Фазы 4 на синтетических данных
-**Дата:** 2026-08-14 14:01:20
+**Дата:** 2026-08-14 14:18:35
 **Окружение:** Python 3.12.3, Windows
 **Boolean union backend:** `none` (влияет на watertight синтетических mesh)
 
@@ -15,7 +15,7 @@
 | Шаг | Результат | Детали/текст ошибки |
 |---|---|---|
 | Загрузка скана | [OK] OK | verts=790, faces=1568, watertight=True, nan=False |
-| Trim line proximal | [OK] OK | curve_points=32, время=0.00s |
+| Trim line proximal | [OK] OK | curve_points=32, время=0.01s |
 | Trim line ankle | [OK] OK | curve_points=39, время=0.01s |
 | Trim line distal | [OK] OK | curve_points=66, время=0.02s |
 | Сглаживание | [OK] OK | elapsed=0.01s, moved=1, max_disp=11.4329mm |
@@ -25,12 +25,12 @@
 | Шаг | Результат | Детали/текст ошибки |
 |---|---|---|
 | Загрузка скана | [OK] OK | verts=790, watertight=True |
-| Инверсия (apply_cast_inversion_workflow) | [OK] OK | elapsed=0.20s, {"total_vertices": 790, "problematic_vertices": 145, "problematic_ratio": 0.18354430379746836, "problematic_vertices_after": 0, "fixed": true} |
+| Инверсия (apply_cast_inversion_workflow) | [OK] OK | elapsed=0.17s, {"total_vertices": 790, "problematic_vertices": 145, "problematic_ratio": 0.18354430379746836, "problematic_vertices_after": 0, "fixed": true} |
 | Анализ результата инверсии | [OK] OK | watertight=True, volume=-199603.5, dist mean=5.226mm, min=3.767mm |
 | Trim line proximal (post-inversion) | [OK] OK | curve_points=34, elapsed=0.00s |
-| Trim line ankle (post-inversion) | [OK] OK | curve_points=33, elapsed=0.01s |
-| Trim line distal (post-inversion) | [OK] OK | curve_points=46, elapsed=0.03s |
-| Сглаживание (post-inversion) | [OK] OK | elapsed=0.03s, nan=False |
+| Trim line ankle (post-inversion) | [OK] OK | curve_points=33, elapsed=0.00s |
+| Trim line distal (post-inversion) | [OK] OK | curve_points=46, elapsed=0.02s |
+| Сглаживание (post-inversion) | [OK] OK | elapsed=0.02s, nan=False |
 
 ### Детали diagnostics инверсии (Проект №2)
 ```json
@@ -46,12 +46,12 @@
 ## Граничные случаи
 - **(a) Повторная загрузка**: OK — данные стабильны при повторной загрузке
 - **(b) Trim line 2 точки**: OK: curve_points=11
-- **(v) Повторное сглаживание 5x**: FAIL: unsupported operand type(s) for /: 'NoneType' and 'float'
+- **(v) Повторное сглаживание 5x**: OK — 5 повторных сглаживаний без вырождения
 - **(g) Несуществующий ID**: OK — FileNotFoundError: Файл не найден: \nonexistent\path\fake_scan.stl | Плохой vidx: IndexError OK
 - **Diagnostics keys**: {'problematic_ratio': 'PRESENT', 'diagnostics': 'PRESENT', 'fix_offset_self_intersections': 'PRESENT', 'fixed key in return': 'PRESENT'}
 
 ## БЛОКИРУЮЩИЕ проблемы
-- [BLOCKING] **ГС-в Повторное сглаживание**: unsupported operand type(s) for /: 'NoneType' and 'float'
+_Блокирующих проблем не обнаружено._
 
 ## НЕБЛОКИРУЮЩИЕ проблемы / известные ограничения
 - [WARN] **Boolean union backend недоступен**: Синтетические меши созданы через concatenate без слияния — они не watertight. Это ограничение среды, не баг кода.
