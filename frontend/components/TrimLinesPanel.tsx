@@ -27,6 +27,7 @@ import TrimLineDrawer, {
 } from "@/components/TrimLineDrawer";
 import TrimLineControls from "@/components/TrimLineControls";
 import LineHintOverlay from "@/components/LineHintOverlay";
+import SavedLinesOverlay from "@/components/SavedLinesOverlay";
 import type { ModelViewerHandle } from "@/components/ModelViewer";
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
@@ -283,6 +284,13 @@ export default function TrimLinesPanel({
 
       {/* LineHintOverlay — голубая/цветная полоска-подсказка на уровне активной линии */}
       <LineHintOverlay viewerRef={viewerRef} activeLineType={activeLineType} />
+
+      {/* SavedLinesOverlay — отрисовка уже сохранённых линий */}
+      <SavedLinesOverlay
+        viewerRef={viewerRef}
+        savedLines={Object.values(savedLines) as SavedLineRecord[]}
+        activeLineType={activeLineType}
+      />
 
       {/* TrimLineDrawer — canvas overlay, рисует кривую поверх 3D */}
       {activeLineType && (
