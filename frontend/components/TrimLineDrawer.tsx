@@ -365,9 +365,15 @@ const TrimLineDrawer = forwardRef<TrimLineDrawerHandle, TrimLineDrawerProps>(
       if (!ctx) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Позиционируем fixed-canvas точно поверх renderer (независимо от места монтирования в DOM)
+      canvas.style.top = `${rect.top + window.scrollY}px`;
+      canvas.style.left = `${rect.left + window.scrollX}px`;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.clearRect(0, 0, rect.width, rect.height);
 
       // — Геодезическая кривая —
       if (curvePoints.length >= 2) {
@@ -483,19 +489,19 @@ const TrimLineDrawer = forwardRef<TrimLineDrawerHandle, TrimLineDrawerProps>(
     }));
 
     // ─── Render ───────────────────────────────────────────────────────────────
+    // Canvas рендерится с position:fixed — это позволяет overlay лежать точно поверх
+    // 3D renderer.domElement независимо от того, в каком месте DOM смонтирован TrimLineDrawer.
+    // Реальное положение (top/left) обновляется в каждом кадре RAF через drawOverlay.
     return (
       <canvas
         ref={overlayRef}
         style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
+          position: "fixed",
+          top: 0,
+          left: 0,
           // Overlay не перехватывает события — pointer-события идут на renderer.domElement
           pointerEvents: "none",
-          zIndex: 25,
-          // Изменяем курсор через CSS на элементе-контейнере в зависимости от состояния drag
-          cursor: draggingIdx !== -1 ? "grabbing" : "crosshair",
+          zIndex: 9999,
         }}
       />
     );

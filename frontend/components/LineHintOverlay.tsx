@@ -131,13 +131,19 @@ export default function LineHintOverlay({
 
       const THREE = await getThree();
 
+      const domRect = renderer.domElement.getBoundingClientRect();
+      // Позиционируем fixed-canvas точно поверх renderer (независимо от места монтирования в DOM)
+      canvas.style.top = `${domRect.top + window.scrollY}px`;
+      canvas.style.left = `${domRect.left + window.scrollX}px`;
+      canvas.style.width = `${domRect.width}px`;
+      canvas.style.height = `${domRect.height}px`;
+      canvas.width = domRect.width * window.devicePixelRatio;
+      canvas.height = domRect.height * window.devicePixelRatio;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.clearRect(0, 0, domRect.width, domRect.height);
 
-      const domRect = renderer.domElement.getBoundingClientRect();
-      canvas.width = domRect.width;
-      canvas.height = domRect.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // ── Вычисляем Y в мировых координатах ─────────────────────────────
       const { min, max } = box;
@@ -251,12 +257,11 @@ export default function LineHintOverlay({
     <canvas
       ref={overlayRef}
       style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
+        position: "fixed",
+        top: 0,
+        left: 0,
         pointerEvents: "none",
-        zIndex: 20, // под TrimLineDrawer (z=25), над 3D canvas
+        zIndex: 9997, // под SavedLinesOverlay (9998) и TrimLineDrawer (9999)
       }}
     />
   );

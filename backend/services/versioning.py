@@ -34,7 +34,7 @@ PROCESSED_MESH_PREFIX = "processed"   # префикс пути внутри buc
 def save_mesh_as_new_version(
     mesh: trimesh.Trimesh,
     parent_version_id: str,
-    author_type: str = "algorithm",
+    author_type: str = "human",
 ) -> str:
     """
     Сохраняет mesh как новую версию проекта.

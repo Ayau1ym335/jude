@@ -81,14 +81,22 @@ export default function SavedLinesOverlay({
         return;
       }
 
+
       const THREE = await getThree();
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
 
       const domRect = renderer.domElement.getBoundingClientRect();
-      canvas.width = domRect.width;
-      canvas.height = domRect.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Позиционируем fixed-canvas точно поверх renderer
+      canvas.style.top = `${domRect.top + window.scrollY}px`;
+      canvas.style.left = `${domRect.left + window.scrollX}px`;
+      canvas.style.width = `${domRect.width}px`;
+      canvas.style.height = `${domRect.height}px`;
+      canvas.width = domRect.width * window.devicePixelRatio;
+      canvas.height = domRect.height * window.devicePixelRatio;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.clearRect(0, 0, domRect.width, domRect.height);
+
 
       for (const line of savedLines) {
         // Не рисуем линию, если она сейчас редактируется
@@ -133,12 +141,11 @@ export default function SavedLinesOverlay({
     <canvas
       ref={overlayRef}
       style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
+        position: "fixed",
+        top: 0,
+        left: 0,
         pointerEvents: "none",
-        zIndex: 22, // над LineHintOverlay (20), под TrimLineDrawer (25)
+        zIndex: 9998, // под TrimLineDrawer (9999)
       }}
     />
   );
