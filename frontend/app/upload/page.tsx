@@ -20,7 +20,7 @@ const ALLOWED_EXTENSIONS = new Set(["stl", "obj", "ply"]);
 const BUCKET = "scan-files";
 
 type Status = "idle" | "uploading" | "success" | "error";
-type ScanSource = "patient_direct" | "cast_negative";
+type ScanSource = "patient_direct" | "structured_light" | "photogrammetry";
 type FileFormat = "stl" | "obj" | "ply";
 
 function getExtension(filename: string): string {
@@ -213,7 +213,7 @@ export default function UploadScanPage() {
         body: JSON.stringify({
           patient_id: patientId.trim(),
           scan_id: scanData.id,
-          afo_type: "posterior_leaf_spring",
+          helmet_type: "cranial_remolding",
         }),
       });
 
@@ -270,14 +270,15 @@ export default function UploadScanPage() {
             ) : null}
 
             <Select
-              label="Тип скана"
+              label="Технология съёмки"
               value={scanSource}
               onChange={(event) =>
                 setScanSource(event.target.value as ScanSource)
               }
             >
-              <option value="patient_direct">Прямой скан пациента</option>
-              <option value="cast_negative">Скан гипсового слепка (негатив)</option>
+              <option value="patient_direct">Прямой скан головы</option>
+              <option value="structured_light">Структурированный свет</option>
+              <option value="photogrammetry">Фотограмметрия</option>
             </Select>
 
             <label className="flex flex-col gap-1.5">

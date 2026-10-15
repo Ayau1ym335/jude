@@ -1,12 +1,15 @@
 """
-Geometry эндпоинты — геодезические кривые, локальное сглаживание mesh и инверсия слепка.
+Geometry эндпоинты — геодезические кривые и локальная коррекция объёма шлема.
 
 POST /geometry/geodesic-curve    — построение геодезической кривой по поверхности
     скана через произвольное число опорных 3D-точек.
-POST /geometry/apply-smoothing   — локальное Laplacian-сглаживание в зоне
-    клика и сохранение результата как новой версии проекта.
-POST /geometry/apply-inversion   — инверсия скана слепка-негатива в позитивную
-    форму + offset на толщину материала + исправление самопересечений.
+    Используется для trim-линий шлема: вырезы под уши, передний проём, нижний край.
+POST /geometry/apply-smoothing   — локальная коррекция объёма в зоне клика:
+    «добавить объём» (зазор для роста) или «убрать объём» (выравнивание выступа).
+    Сохраняет результат как новую версию проекта.
+
+Примечание: эндпоинт apply-inversion удалён — для шлемов голову сканируют
+напрямую, инверсия слепка не требуется.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -20,7 +23,6 @@ from app.services.geodesic_curve import (
 from app.services.mesh_loader import load_mesh_from_url
 from services.local_smoothing import apply_local_laplacian_smoothing
 from services.versioning import save_mesh_as_new_version
-from services.inversion import apply_cast_inversion_workflow
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
 
@@ -34,6 +36,8 @@ class GeodesicCurveRequest(BaseModel):
 async def geodesic_curve_endpoint(request: GeodesicCurveRequest):
     """
     Строит геодезическую кривую по поверхности скана через опорные 3D-точки.
+
+    Используется для разметки trim-линий шлема: вырезы под уши, передний проём, нижний край.
 
     - scan_id: UUID скана (из таблицы scans).
     - click_points: список точек [[x,y,z], ...], минимум 2.
@@ -73,22 +77,28 @@ class SmoothingRequest(BaseModel):
     version_id: str
     center_point: list[float]   # [x, y, z] — 3D-координаты клика
     radius: float = 15.0        # радиус зоны (мм). инженерный ориентир, не провалидирован
-    intensity: float = 0.5      # сила сглаживания: 0 = нет, 1 = максимум
+    intensity: float = 0.5      # сила коррекции: 0 = нет, 1 = максимум
     iterations: int = 3         # число итераций Laplacian
 
 
 @router.post("/apply-smoothing")
 async def apply_smoothing_endpoint(request: SmoothingRequest):
     """
-    Применяет локальное Laplacian-сглаживание к mesh в зоне вокруг
-    указанной 3D-точки, затем сохраняет результат как новую версию проекта.
+    Применяет локальную коррекцию объёма шлема в зоне вокруг указанной 3D-точки,
+    затем сохраняет результат как новую версию проекта.
+
+    Логика шлема:
+    - В плоских зонах (недостаточный зазор для роста) — добавляем объём (сглаживание
+      выравнивает наружу, увеличивая внутренний зазор).
+    - В выступающих зонах (высокое давление) — убираем объём (сглаживание
+      приближает поверхность к оси).
 
     Параметры:
     - scan_id:      UUID скана (из таблицы scans)
     - version_id:   UUID родительской версии (parent_version_id)
-    - center_point: [x, y, z] — точка центра зоны сглаживания
-    - radius:       радиус (мм). 15 мм — инженерный ориентир, не провалидирован
-    - intensity:    сила сглаживания [0, 1]
+    - center_point: [x, y, z] — точка центра зоны коррекции
+    - radius:       радиус зоны (мм). 15 мм — инженерный ориентир, не провалидирован
+    - intensity:    сила коррекции [0, 1]
     - iterations:   число итераций
 
     Возвращает:
@@ -162,103 +172,3 @@ async def apply_smoothing_endpoint(request: SmoothingRequest):
         "vertices_moved": vertices_moved,
     }
 
-
-# ─── POST /geometry/apply-inversion ──────────────────────────────────────────────────────────
-
-class InversionRequest(BaseModel):
-    scan_id: str
-    version_id: str
-    material_thickness: float = 4.0      # мм. Инженерный ориентир, не провалидирован
-    smoothing_iterations: int = 5        # число итераций пост-обработки самопересечений
-    tolerance: float = 0.3               # порог детекции проблемных зон (30%)
-
-
-@router.post("/apply-inversion")
-async def apply_inversion_endpoint(request: InversionRequest):
-    """
-    Инвертирует скан гипсового слепка (негатив) в позитивную форму, применяет offset
-    на толщину материала, исправляет самопересечения в зонах высокой кривизны
-    (пятка, лодыжка), сохраняет результат как новую версию проекта.
-
-    Параметры:
-    - scan_id:             UUID скана (scan_source должен быть 'cast_negative')
-    - version_id:          UUID родительской версии
-    - material_thickness:  толщина материала (мм). Инженерный ориентир, не провалидирован
-    - smoothing_iterations: число итераций исправления самопересечений
-    - tolerance:            порог детекции проблемных зон (0.3 = 30%)
-
-    Возвращает:
-        {"new_mesh_url": str, "diagnostics": dict, "warning"?: str}
-    """
-    if not (0.5 <= request.material_thickness <= 15.0):
-        raise HTTPException(
-            status_code=422,
-            detail="material_thickness должна быть в диапазоне [0.5, 15.0] мм.",
-        )
-
-    # 1. Загрузить mesh скана
-    try:
-        mesh = load_mesh_from_url(request.scan_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Ошибка загрузки mesh: {exc}")
-
-    # 2. Инверсия + offset + исправление самопересечений
-    try:
-        result_mesh, diagnostics = apply_cast_inversion_workflow(
-            mesh,
-            material_thickness=request.material_thickness,
-            smoothing_iterations=request.smoothing_iterations,
-            tolerance=request.tolerance,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Ошибка инверсии: {exc}",
-        )
-
-    # 3. Гвард: если автоисправление не дало результата и > 5% поверхности проблемные — не отдавать
-    # невалидный mesh молча
-    if not diagnostics["fixed"] and diagnostics["problematic_ratio"] > 0.05:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Не удалось автоматически исправить геометрию после инверсии: "
-                f"{diagnostics['problematic_vertices_after']} из {diagnostics['total_vertices']} вершин "
-                f"(зоны высокой кривизны). "
-                f"Возможно, скан содержит нетипично резкие особенности формы. "
-                f"Требуется ручная проверка."
-            ),
-        )
-
-    # 4. Сохранить как новую версию
-    try:
-        new_mesh_url = save_mesh_as_new_version(
-            result_mesh,
-            parent_version_id=request.version_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except NotImplementedError as exc:
-        raise HTTPException(status_code=501, detail=f"save_mesh_as_new_version не реализована: {exc}")
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Ошибка сохранения версии: {exc}")
-
-    # 5. Формируем ответ
-    response: dict = {
-        "new_mesh_url": new_mesh_url,
-        "diagnostics": diagnostics,
-    }
-
-    # Предупреждение технику, если исправленная зона значительна (> 2% поверхности)
-    if diagnostics["problematic_ratio"] > 0.02:
-        response["warning"] = (
-            f"В {diagnostics['problematic_vertices']} точках поверхности "
-            f"({diagnostics['problematic_ratio'] * 100:.1f}% поверхности) потребовалась "
-            f"дополнительная коррекция формы в зонах высокой кривизны "
-            f"(например, пятка или лодыжка). "
-            f"Рекомендуется визуально проверить эти зоны перед дальнейшей ректификацией."
-        )
-
-    return response

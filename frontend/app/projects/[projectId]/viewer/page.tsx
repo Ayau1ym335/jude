@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { ModelViewer, type ModelViewerHandle } from "@/components/ModelViewer";
 import TrimLinesPanel from "@/components/TrimLinesPanel";
 import SmoothingTool from "@/components/SmoothingTool";
-import InversionStep from "@/components/InversionStep";
+
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
 import Badge from "@/components/ui/Badge";
@@ -18,7 +18,7 @@ interface ScanData {
   file_url: string;
   preview_mesh_url: string | null;
   file_format: "stl" | "obj" | "ply";
-  scan_source: "patient_direct" | "cast_negative";
+  scan_source: "patient_direct" | "structured_light" | "photogrammetry";
   uploaded_at: string;
   validation_status: "pending" | "valid" | "invalid";
 }
@@ -346,16 +346,7 @@ export default function ProjectViewerPage() {
           Инструменты
         </h2>
 
-        {scan && version && session && (
-          <InversionStep
-            scanId={scan.id}
-            versionId={version.id}
-            scanSource={scan.scan_source}
-            sessionToken={session.access_token}
-            onInverted={handleSmoothingApplied}
-            embedded
-          />
-        )}
+
 
         {scan && version ? (
           <TrimLinesPanel

@@ -1,7 +1,7 @@
 """
 CRUD для Project — реальные запросы к Supabase.
 
-POST /projects                        — создание проекта на основе скана
+POST /projects                        — создание проекта шлема на основе скана головы
 GET  /projects/{id}                   — получение проекта
 GET  /projects/{id}/versions          — список версий проекта
 """
@@ -74,7 +74,7 @@ def list_projects(
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProjectCreate) -> ProjectRead:
     """
-    Создать проект на основе пациента и скана.
+    Создать проект шлема на основе скана головы и карточки пациента.
 
     Проверяем, что скан действительно принадлежит указанному пациенту —
     это логическая проверка, которую одним FK в БД не выразить.
@@ -118,7 +118,7 @@ def create_project(payload: ProjectCreate) -> ProjectRead:
     data = {
         "patient_id": str(payload.patient_id),
         "scan_id": str(payload.scan_id),
-        "afo_type": payload.afo_type,
+        "helmet_type": payload.helmet_type,
         "status": "in_progress",
     }
 

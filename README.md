@@ -1,100 +1,110 @@
-# AFO Platform (Orthotics Platform)
+# Helmet Platform (Cranial Remolding Orthosis)
 
-A full-stack web application for orthotic clinics and manufacturers to manage patients, validate and process 3D anatomical scans (STL, OBJ, PLY), and oversee manufacturing projects (e.g., Ankle-Foot Orthoses - AFO).
+Полнофункциональное веб-приложение для ортопедических клиник и производителей краниальных шлемов. Управление пациентами, валидация и обработка 3D-сканов головы (STL, OBJ, PLY), проектирование шлемов-реформеров.
 
-## 🚀 Key Features
+## 🚀 Ключевые возможности
 
-- **Patient & Project Management**: End-to-end flow from patient creation to scan uploading and project tracking.
-- **3D Scan Validation**: Automated backend pipeline that checks 3D models for manifoldness, watertightness, and bounding box physical limits.
-- **Automated Mesh Decimation**: Background tasks (via FastAPI) automatically reduce high-poly 3D scans to optimized preview meshes (< 50,000 faces) for fast web rendering, preserving the original clinical file for manufacturing.
-- **High-Performance 3D Viewer**: WebGL-powered 3D viewer built with Three.js. Supports STL, OBJ, and PLY formats. Includes dynamic zooming, auto-centering, and frame-rate optimizations (e.g., pixel ratio capping, normal memoization).
-- **Secure Architecture**: Integrated with Supabase (PostgreSQL + Auth) using JWT-based authentication across the frontend and backend.
+- **Управление пациентами и проектами**: сквозной флоу от создания карточки пациента до загрузки скана и отслеживания проекта шлема.
+- **Валидация 3D-скана головы**: автоматический бэкенд-пайплайн — проверка manifoldness, watertightness и физических размеров модели.
+- **Автоматическая децимация**: фоновые задачи (FastAPI) сокращают высокополигональные сканы до оптимизированных превью (< 50 000 граней) для быстрого WebGL-рендера.
+- **Высокопроизводительный 3D-viewer**: WebGL на Three.js. Поддержка STL, OBJ, PLY. Динамический зум, авто-центрирование, оптимизация FPS.
+- **Геодезические кривые (trim-линии шлема)**: разметка линий обрезки — вырезы под уши, передний проём, нижний край. Строятся по поверхности скана через алгоритм Кимелла-Сетяна.
+- **Локальная коррекция объёма**: ядро проектирования шлема. В плоских зонах добавляется объём (зазор для роста), в выступающих убирается (снятие давления). Инструмент «добавить/убрать объём» с геодезическим затуханием.
+- **Версионирование правок**: каждая коррекция сохраняется как новая версия проекта.
+- **Экспорт STL**: для передачи в производство.
+- **Безопасная архитектура**: Supabase (PostgreSQL + Auth), JWT-аутентификация.
 
-## 🛠 Tech Stack
+> **Инверсия слепка не нужна** — для шлемов голова сканируется напрямую.
+
+## 🛠 Стек
 
 ### Frontend
 - **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript, React
-- **Styling**: Tailwind CSS (with glassmorphism UI & dark mode support)
-- **3D Rendering**: Three.js (raw integration for maximum performance control)
+- **Styling**: Tailwind CSS (glassmorphism UI, dark mode)
+- **3D Rendering**: Three.js (raw integration)
 
 ### Backend
 - **Framework**: FastAPI
 - **Language**: Python 3
-- **Geometry Processing**: Trimesh (for mesh validation and decimation)
+- **Geometry**: Trimesh + pygeodesic (алгоритм Кимелла-Сетяна)
 - **Database & Storage**: Supabase (PostgreSQL, Storage, Auth)
 
-## 📁 Project Structure
+## 📁 Структура проекта
 
 ```text
 ├── backend/                  # FastAPI Application
 │   ├── app/
 │   │   ├── dependencies/     # Auth and DB dependencies
-│   │   ├── geometry/         # Trimesh processing, validation, and decimation
-│   │   ├── routers/          # API endpoints (patients, projects, scans, upload)
-│   │   ├── schemas/          # Pydantic models for validation
-│   │   └── services/         # Supabase client integration
-│   └── requirements.txt      # Python dependencies
+│   │   ├── geometry/         # Trimesh processing, validation, decimation
+│   │   ├── routers/          # API endpoints (patients, projects, scans, geometry, trim-lines)
+│   │   ├── schemas/          # Pydantic models (ScanCreate, ProjectCreate с helmet_type)
+│   │   └── services/         # Supabase client
+│   └── services/
+│       ├── local_smoothing.py   # Локальная коррекция объёма (геодезические веса)
+│       ├── versioning.py        # Сохранение версий mesh
+│       └── mesh_loader.py       # Загрузка mesh из Supabase Storage
 │
 ├── frontend/                 # Next.js Application
-│   ├── app/                  # App Router pages (dashboard, patients, projects, upload)
-│   ├── components/           # React components (AppLayout, ModelViewer, etc.)
-│   ├── lib/                  # Utilities (Supabase client)
-│   └── package.json          # Node dependencies
+│   ├── app/                  # App Router pages (dashboard, patients, upload)
+│   ├── components/           # React components
+│   │   ├── ModelViewer.tsx      # 3D viewer (Three.js)
+│   │   ├── TrimLinesPanel.tsx   # Панель trim-линий шлема
+│   │   ├── TrimLineDrawer.tsx   # Canvas overlay для рисования кривых
+│   │   └── SmoothingTool.tsx    # Инструмент коррекции объёма
+│   └── package.json
 ```
 
-## ⚙️ Local Development Setup
+## ⚙️ Локальная разработка
 
-### Prerequisites
+### Требования
 - Node.js (v18+)
 - Python (v3.10+)
-- A Supabase Project (URL & Anon Key)
+- Supabase Project (URL & Anon Key)
 
-### 1. Supabase Configuration
-Ensure your Supabase project has the following tables configured (e.g., via SQL Editor):
+### 1. Supabase
+Таблицы в БД:
 - `patients`
-- `scans` (with `validation_status` column)
-- `projects`
-- Storage Bucket named `scan-files`.
+- `scans` (поле `scan_source`: patient_direct / structured_light / photogrammetry)
+- `projects` (поле `helmet_type`: cranial_remolding)
+- `project_versions`
+- `trim_lines`
+- Storage Bucket: `scan-files`
 
-### 2. Backend Setup
+### 2. Backend
 ```bash
 cd backend
 python -m venv .venv
-# Activate virtual environment (Windows: .venv\Scripts\activate | Mac/Linux: source .venv/bin/activate)
+# Windows: .venv\Scripts\activate | Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
-Create a `.env.local` file in the `backend/` directory:
+`.env.local` в `backend/`:
 ```env
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
-Run the FastAPI server:
 ```bash
-poetry run uvicorn app.main:app --reload
-# or using standard python:
 uvicorn app.main:app --reload
 ```
-API runs on `http://localhost:8000`. Swagger docs available at `http://localhost:8000/docs`.
+API: `http://localhost:8000` | Swagger: `http://localhost:8000/docs`
 
-### 3. Frontend Setup
+### 3. Frontend
 ```bash
 cd frontend
 npm install
 ```
-Create a `.env.local` file in the `frontend/` directory:
+`.env.local` в `frontend/`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
-Run the Next.js development server:
 ```bash
 npm run dev
 ```
-App runs on `http://localhost:3000`.
+App: `http://localhost:3000`
 
-## 📦 Deployment
-- **Frontend**: Optimized for Vercel. Connect the GitHub repo and deploy the `frontend/` directory.
-- **Backend**: Can be deployed to Railway, Render, or any Docker-compatible hosting. Ensure `runtime.txt` is present if using Python buildpacks.
+## 📦 Деплой
+- **Frontend**: Vercel (подключить репозиторий, деплоить директорию `frontend/`).
+- **Backend**: Railway, Render или любой Docker-совместимый хостинг.

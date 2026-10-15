@@ -9,19 +9,17 @@ class ProjectCreate(BaseModel):
     """
     Тело запроса на создание проекта (POST /projects).
 
-    Проект создаётся на основе уже загруженного и провалидированного скана —
-    один пациент может иметь несколько проектов (например, левая и правая стопа).
+    Проект шлема создаётся на основе уже загруженного и провалидированного скана головы.
     """
 
     patient_id: UUID = Field(..., description="Пациент, для которого создаётся проект.")
-    scan_id: UUID = Field(..., description="Скан, на основе которого ведётся проектирование.")
-    afo_type: Literal["posterior_leaf_spring"] = Field(
-        default="posterior_leaf_spring",
+    scan_id: UUID = Field(..., description="Скан, на основе которого ведётся проектирование шлема.")
+    helmet_type: Literal["cranial_remolding"] = Field(
+        default="cranial_remolding",
         description=(
-            "Тип AFO. На MVP всегда 'posterior_leaf_spring' — сознательное "
-            "сужение скоупа (см. документ по инструментам PLS). Поле заведено "
-            "как enum уже сейчас, чтобы не менять контракт API при добавлении "
-            "других типов AFO на Этапе 1."
+            "Тип шлема. На MVP всегда 'cranial_remolding' — краниальный ремоделяционный ортез. "
+            "Поле заведено как enum сейчас, чтобы не менять контракт API при "
+            "добавлении других типов шлемов в будущем."
         ),
     )
 
@@ -32,10 +30,10 @@ class ProjectRead(BaseModel):
     id: UUID
     patient_id: UUID
     scan_id: UUID
-    afo_type: Literal["posterior_leaf_spring"]
+    helmet_type: str  # Тип шлема: cranial_remolding и др.
     created_at: datetime
     status: Literal["in_progress", "exported", "manufactured"] = "in_progress"
-    # Пополняется при list_projects через join co таблицей scans:
+    # Пополняется при list_projects через join со таблицей scans:
     scan_validation_status: Optional[str] = None
 
     class Config:

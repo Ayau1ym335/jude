@@ -21,7 +21,7 @@ interface PatientList {
 interface Project {
   id: string;
   patient_id: string;
-  afo_type: string;
+  helmet_type: string;
   status: string;
   scan_validation_status: string | null;
   created_at: string;
@@ -36,6 +36,10 @@ const STATUS_LABELS: Record<string, string> = {
   in_progress: "В работе",
   exported: "Экспортирован",
   manufactured: "Изготовлен",
+};
+
+const HELMET_TYPE_LABELS: Record<string, string> = {
+  cranial_remolding: "Краниальный шлем",
 };
 
 const STATUS_VARIANT: Record<string, "warning" | "accent" | "success" | "muted"> = {
@@ -107,10 +111,10 @@ export default function DashboardPage() {
     <div className="flex flex-1 flex-col">
       <PageHeader
         title="Главная"
-        description="Обзор работы клиники"
+        description="Обзор работы клиники шлемов"
         action={
           <Button variant="accent" onClick={() => router.push("/upload")}>
-            Загрузить скан
+            Загрузить скан головы
           </Button>
         }
       />
@@ -163,7 +167,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <p className="text-sm font-medium text-jude-ink">
-                          {project.afo_type}
+                          {HELMET_TYPE_LABELS[project.helmet_type] ?? project.helmet_type}
                         </p>
                         <p className="mt-0.5 font-mono text-xs text-jude-subtle">
                           {project.id.slice(0, 8)}…

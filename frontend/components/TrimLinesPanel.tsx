@@ -3,10 +3,10 @@
 /**
  * TrimLinesPanel.tsx
  *
- * Панель управления тремя референсными линиями обрезки PLS:
- *   - proximal (верхняя, проксимальная)
- *   - ankle (линия голеностопа)
- *   - distal (дистальная, линия стопы)
+ * Панель управления тремя референсными линиями обрезки шлема:
+ *   - proximal (верхняя линия шлема, если применимо)
+ *   - ankle (линия виска / лба)
+ *   - distal (нижний край шлема)
  *
  * Отображается поверх 3D-вьюера как overlay.
  * Загружает сохранённые линии при монтировании,
@@ -54,9 +54,9 @@ interface TrimLinesPanelProps {
 // ─── Конфигурация ────────────────────────────────────────────────────────────
 
 const LINE_LABELS: Record<LineType, string> = {
-  proximal: "Верхняя линия (проксимальная)",
-  ankle: "Линия голеностопа",
-  distal: "Линия стопы (дистальная)",
+  proximal: "Верхняя линия шлема",
+  ankle: "Линия виска / лба",
+  distal: "Нижний край шлема",
 };
 
 const LINE_ORDER: LineType[] = ["proximal", "ankle", "distal"];
@@ -184,7 +184,7 @@ export default function TrimLinesPanel({
         {/* Заголовок */}
         <div className="mb-2.5 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-jude-ink">
-            Линии обрезки PLS
+            Линии обрезки шлема
           </h3>
           <span className="text-xs font-medium text-jude-subtle">
             {completedCount}/{LINE_ORDER.length}

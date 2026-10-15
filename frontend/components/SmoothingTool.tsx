@@ -5,20 +5,19 @@ import type { ModelViewerHandle } from "@/components/ModelViewer";
 import type React from "react";
 
 /**
- * SmoothingTool — панель инструмента локального Laplacian-сглаживания.
+ * SmoothingTool — панель инструмента локальной коррекции объёма шлема.
  *
- * Интеграция в viewer/page.tsx (следующий день):
+ * Логика:
+ *   - В плоских зонах (недостаточный зазор для роста) — добавляем объём.
+ *   - В выступающих зонах (высокое давление) — убираем объём.
+ *
+ * Интеграция в viewer/page.tsx:
  *   <ModelViewer ref={viewerRef} file={scanFile}
  *     onMeshClick={handleMeshClick} pickMode={smoothingPickMode} />
  *   <SmoothingTool viewerRef={viewerRef} scanId={scan.id} versionId={version.id}
  *     onApplied={(newUrl) => { ... }} />
  *
- * Компонент не навешивает события напрямую на canvas — использует пропсы
- * onMeshClick/pickMode ModelViewer, который уже реализует raycasting через
- * нативный Three.js (без @react-three/fiber). Это консистентно с тем,
- * как работает TrimLineDrawer.
- *
- * Параметры сглаживания (radius, intensity) — инженерные ориентиры,
+ * Параметры коррекции (radius, intensity) — инженерные ориентиры,
  * не клинически провалидированные значения.
  */
 
@@ -137,10 +136,10 @@ export default function SmoothingTool({
       {/* Заголовок */}
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-jude-ink">
-          Сглаживание
+          Коррекция объёма
         </h3>
         <span className="text-xs font-medium text-jude-subtle">
-          Лодыжка / зона отёка
+          Голова / зона давления
         </span>
       </div>
 
@@ -178,7 +177,7 @@ export default function SmoothingTool({
       <div className="mb-3 space-y-2.5">
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <label className="text-xs text-jude-muted">Радиус зоны</label>
+            <label className="text-xs text-jude-muted">Радиус зоны коррекции</label>
             <span className="text-xs font-medium text-jude-ink">
               {radius}&nbsp;мм
             </span>
@@ -201,7 +200,7 @@ export default function SmoothingTool({
 
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <label className="text-xs text-jude-muted">Сила сглаживания</label>
+            <label className="text-xs text-jude-muted">Сила коррекции</label>
             <span className="text-xs font-medium text-jude-ink">
               {Math.round(intensity * 100)}%
             </span>
@@ -231,7 +230,7 @@ export default function SmoothingTool({
             Применение…
           </span>
         ) : (
-          "② Применить сглаживание"
+        {"② Применить коррекцию"}
         )}
       </button>
 
@@ -239,7 +238,7 @@ export default function SmoothingTool({
       {lastResult && (
         <div className="mt-2.5 rounded-lg border border-jude-success/20 bg-jude-success-soft px-3 py-2">
           <p className="text-xs font-medium text-jude-success">
-            Сглаживание применено
+            Коррекция применена
           </p>
           <p className="mt-0.5 text-[11px] text-jude-success/80">
             Смещено вершин: {lastResult.movedVertices}
