@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import type { ModelViewerHandle } from "@/components/ModelViewer";
-
-type XYZ = [number, number, number];
+import { projectToScreen, type XYZ } from "@/lib/three-utils";
 
 export interface SavedLineRecord {
   id: string;
@@ -26,20 +25,6 @@ const LINE_COLORS: Record<string, string> = {
   ankle: "#3b82f6",    // blue-500
   distal: "#10b981",   // emerald-500
 };
-
-function projectToScreen(
-  point: XYZ,
-  camera: import("three").PerspectiveCamera,
-  rect: DOMRect,
-  THREE: typeof import("three")
-): { x: number; y: number } {
-  const v = new THREE.Vector3(...point);
-  v.project(camera);
-  return {
-    x: ((v.x + 1) / 2) * rect.width,
-    y: ((-v.y + 1) / 2) * rect.height,
-  };
-}
 
 export default function SavedLinesOverlay({
   viewerRef,

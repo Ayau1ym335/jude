@@ -28,10 +28,15 @@ import {
 } from "react";
 import type { ModelViewerHandle } from "@/components/ModelViewer";
 import type React from "react";
+import {
+  projectToScreen,
+  raycastSync,
+  dist2D,
+  debounce,
+  type XYZ,
+} from "@/lib/three-utils";
 
-// ─── Типы ────────────────────────────────────────────────────────────────────
-
-export type XYZ = [number, number, number];
+export type { XYZ };
 
 export interface SavedLine {
   lineType: string;
@@ -59,67 +64,6 @@ interface TrimLineDrawerProps {
     pointsCount: number;
     loading: boolean;
   }) => void;
-}
-
-// ─── Утилиты ─────────────────────────────────────────────────────────────────
-
-/** Проецирует 3D-координату в экранную систему Canvas-оверлея */
-function projectToScreen(
-  point: XYZ,
-  camera: import("three").PerspectiveCamera,
-  renderer: import("three").WebGLRenderer,
-  THREE: typeof import("three")
-): { x: number; y: number } {
-  const v = new THREE.Vector3(...point);
-  v.project(camera);
-  const rect = renderer.domElement.getBoundingClientRect();
-  return {
-    x: ((v.x + 1) / 2) * rect.width,
-    y: ((-v.y + 1) / 2) * rect.height,
-  };
-}
-
-/** Синхронный raycast (Three.js уже загружен в бандл) */
-function raycastSync(
-  clientX: number,
-  clientY: number,
-  mesh: import("three").Mesh,
-  camera: import("three").PerspectiveCamera,
-  renderer: import("three").WebGLRenderer,
-  THREE: typeof import("three")
-): XYZ | null {
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObject(mesh);
-  if (hits.length === 0) return null;
-  const p = hits[0].point;
-  return [p.x, p.y, p.z];
-}
-
-/** Создаёт debounce-функцию */
-function debounce<T extends (...args: Parameters<T>) => void>(
-  fn: T,
-  ms: number
-): T & { cancel: () => void } {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const debounced = (...args: Parameters<T>) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-  debounced.cancel = () => {
-    if (timer) clearTimeout(timer);
-    timer = null;
-  };
-  return debounced as T & { cancel: () => void };
-}
-
-/** Euclidean distance в 2D */
-function dist2D(ax: number, ay: number, bx: number, by: number): number {
-  return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
 }
 
 const DRAG_HIT_RADIUS = 14; // px вокруг точки — зона захвата drag
