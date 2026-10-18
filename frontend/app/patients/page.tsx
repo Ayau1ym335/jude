@@ -63,7 +63,9 @@ export default function PatientsPage() {
 
   useEffect(() => {
     if (!session) return;
-    void loadPatients(session.access_token);
+    queueMicrotask(() => {
+      void loadPatients(session.access_token);
+    });
   }, [session, loadPatients]);
 
   function handleSearch(e: ChangeEvent<HTMLInputElement>) {

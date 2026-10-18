@@ -230,7 +230,7 @@ export default function SmoothingTool({
             Применение…
           </span>
         ) : (
-        {"② Применить коррекцию"}
+          "② Применить коррекцию"
         )}
       </button>
 

@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { ModelViewer, type ModelViewerHandle } from "@/components/ModelViewer";
 import TrimLinesPanel from "@/components/TrimLinesPanel";
 import SmoothingTool from "@/components/SmoothingTool";
+import HeadLandmarksTool from "@/components/HeadLandmarksTool";
+import AsymmetryOverlay from "@/components/AsymmetryOverlay";
 
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
@@ -28,6 +30,8 @@ interface ProjectData {
   patient_id: string;
   scan_id: string;
   afo_type: string;
+  /** Тип шлема: 'cranial_remolding' — краниальный ортез. HeadLandmarksTool показывается только для него. */
+  helmet_type: string;
   status: string;
 }
 
@@ -86,6 +90,15 @@ export default function ProjectViewerPage() {
   const [previousScanFile, setPreviousScanFile] = useState<File | null>(null);
   const [previousVersion, setPreviousVersion] = useState<ProjectVersionData | null>(null);
 
+  // ─── Landmarks state ──────────────────────────────────────────────────────
+  const [landmarksPickMode, setLandmarksPickMode] = useState(false);
+  const [landmarksPickedPoint, setLandmarksPickedPoint] = useState<[number, number, number] | null>(null);
+  // Отслеживаем сохранение меток (нужно для разблокировки AsymmetryOverlay)
+  const [landmarksSaved, setLandmarksSaved] = useState(false);
+
+  // ─── Asymmetry state ──────────────────────────────────────────────────────
+  const [asymmetryActive, setAsymmetryActive] = useState(false);
+
   async function handleCreateVersion() {
     if (!session || !projectId) return;
     setCreatingVersion(true);
@@ -115,6 +128,8 @@ export default function ProjectViewerPage() {
     if (smoothingPickMode) {
       setSmoothingPickedPoint(point);
       setSmoothingPickMode(false);
+    } else if (landmarksPickMode) {
+      setLandmarksPickedPoint(point);
     }
   }
 
@@ -216,6 +231,14 @@ export default function ProjectViewerPage() {
         if (!scanRes.ok) throw new Error(`Скан не найден (${scanRes.status})`);
         const scanData = (await scanRes.json()) as ScanData;
         setScan(scanData);
+
+        // 2b. Проверяем наличие ориентиров головы
+        try {
+          const lmRes = await fetch(`${apiUrl}/scans/${projectData.scan_id}/landmarks`, { headers });
+          setLandmarksSaved(lmRes.ok);
+        } catch {
+          setLandmarksSaved(false);
+        }
 
         // 3. Загружаем последнюю версию проекта (для trim_lines)
         const versionsRes = await fetch(
@@ -333,7 +356,7 @@ export default function ProjectViewerPage() {
                 ref={viewerRef}
                 file={scanFile}
                 onMeshClick={handleMeshClick}
-                pickMode={smoothingPickMode}
+                pickMode={smoothingPickMode || landmarksPickMode}
               />
             </>
           )}
@@ -345,6 +368,33 @@ export default function ProjectViewerPage() {
         <h2 className="font-heading text-sm text-jude-primary">
           Инструменты
         </h2>
+
+        {/* HeadLandmarksTool — для краниальных шлемов или при наличии меток */}
+        {scan && session && (project?.helmet_type === "cranial_remolding" || landmarksSaved) && (
+          <HeadLandmarksTool
+            viewerRef={viewerRef}
+            scanId={scan.id}
+            accessToken={session.access_token}
+            pickedPoint={landmarksPickedPoint}
+            isPickMode={landmarksPickMode}
+            onTogglePickMode={setLandmarksPickMode}
+            onLandmarksSaved={setLandmarksSaved}
+            embedded
+          />
+        )}
+
+        {/* AsymmetryOverlay — карта асимметрии рядом с ориентирами */}
+        {scan && session && (project?.helmet_type === "cranial_remolding" || landmarksSaved) && (
+          <AsymmetryOverlay
+            viewerRef={viewerRef}
+            scanId={scan.id}
+            accessToken={session.access_token}
+            active={asymmetryActive}
+            onToggleActive={setAsymmetryActive}
+            hasLandmarks={landmarksSaved}
+            embedded
+          />
+        )}
 
 
 

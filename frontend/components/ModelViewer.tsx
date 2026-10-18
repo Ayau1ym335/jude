@@ -24,6 +24,15 @@ export interface ModelViewerHandle {
   showPreviewSphere: (center: [number, number, number], radius: number) => void;
   /** Скрыть сферу предпросмотра */
   hidePreviewSphere: () => void;
+  /**
+   * Применить вершинные цвета к мешу (карта асимметрии / тепловая карта).
+   * colors — Float32Array длиной N*3 (r,g,b на каждую вершину, [0..1]).
+   * Число вершин должно совпадать с geometry.attributes.position.count.
+   * Возвращает false если меш ещё не загружен или размеры не совпадают.
+   */
+  applyVertexColors: (colors: Float32Array) => boolean;
+  /** Сбросить вершинные цвета и вернуть стандартный серый материал. */
+  clearVertexColors: () => void;
 }
 
 interface ModelViewerProps {
@@ -336,6 +345,40 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
       if (sphere?.parent) {
         sphere.parent.remove(sphere);
       }
+    },
+    applyVertexColors: (colors: Float32Array): boolean => {
+      const mesh = meshRef.current;
+      if (!mesh) return false;
+      const geo = mesh.geometry as THREE.BufferGeometry;
+      const vertexCount = geo.attributes.position.count;
+      if (colors.length !== vertexCount * 3) return false;
+
+      // Устанавливаем/обновляем атрибут цвета
+      if (geo.attributes.color) {
+        (geo.attributes.color as THREE.BufferAttribute).array = colors;
+        (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      } else {
+        geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      }
+
+      // Включаем вершинные цвета в материале
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      mat.vertexColors = true;
+      mat.color.set(0xffffff); // нейтральный белый — не перебивает вершинные цвета
+      mat.needsUpdate = true;
+      return true;
+    },
+    clearVertexColors: () => {
+      const mesh = meshRef.current;
+      if (!mesh) return;
+      const geo = mesh.geometry as THREE.BufferGeometry;
+      if (geo.attributes.color) {
+        geo.deleteAttribute("color");
+      }
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      mat.vertexColors = false;
+      mat.color.set(0xcccccc); // стандартный серый
+      mat.needsUpdate = true;
     },
   }), []);
 

@@ -23,6 +23,8 @@ from app.services.geodesic_curve import (
 from app.services.mesh_loader import load_mesh_from_url
 from services.local_smoothing import apply_local_laplacian_smoothing
 from services.versioning import save_mesh_as_new_version
+from services.asymmetry import compute_asymmetry, ASYMMETRY_THRESHOLD_MM
+from app.services.database import get_supabase
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
 
@@ -171,4 +173,88 @@ async def apply_smoothing_endpoint(request: SmoothingRequest):
         "center_vertex_idx": center_vertex_idx,
         "vertices_moved": vertices_moved,
     }
+
+
+# ─── POST /geometry/asymmetry-map ────────────────────────────────────────────
+
+class AsymmetryRequest(BaseModel):
+    scan_id: str
+    threshold_mm: float = ASYMMETRY_THRESHOLD_MM  # порог «клинически значимой» асимметрии
+
+
+@router.post("/asymmetry-map")
+async def asymmetry_map_endpoint(request: AsymmetryRequest):
+    """
+    Вычисляет карту асимметрии головы — подписанное расстояние (мм) до
+    зеркально отражённой поверхности для каждой вершины скана.
+
+    Требует заранее сохранённых анатомических ориентиров (PUT /scans/{id}/landmarks).
+    Если метки не найдены, возвращает HTTP 422 с понятным сообщением.
+
+    Тело запроса:
+      - scan_id:       UUID скана.
+      - threshold_mm:  порог значимой асимметрии (мм). По умолчанию 3 мм.
+                       Уточнить у клиники перед клиническим использованием.
+
+    Ответ:
+      - values:                 list[float]  — подписанное расстояние по вершинам (мм),
+                                               порядок соответствует вершинам загруженного mesh.
+      - min, max:               float        — диапазон подписанных значений.
+      - mean_abs:               float        — средняя абсолютная асимметрия.
+      - percent_over_threshold: float        — % вершин с |δ| > threshold_mm.
+      - threshold_mm:           float        — использованный порог.
+      - vertex_count:           int          — число вершин в mesh.
+    """
+    db = get_supabase()
+
+    # 1. Загрузить ориентиры из БД
+    landmarks_resp = (
+        db.table("head_landmarks")
+        .select("nasion, tragus_left, tragus_right")
+        .eq("scan_id", request.scan_id)
+        .maybe_single()
+        .execute()
+    )
+
+    if landmarks_resp.data is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Анатомические ориентиры для скана {request.scan_id} не найдены. "
+                "Расставьте метки (насион, левый и правый козелок) через "
+                "PUT /scans/{id}/landmarks перед вычислением карты асимметрии."
+            ),
+        )
+
+    lm = landmarks_resp.data
+    nasion: list[float]       = lm["nasion"]
+    tragus_left: list[float]  = lm["tragus_left"]
+    tragus_right: list[float] = lm["tragus_right"]
+
+    # 2. Загрузить mesh
+    try:
+        mesh = load_mesh_from_url(request.scan_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Ошибка загрузки mesh: {exc}")
+
+    # 3. Вычислить карту асимметрии
+    try:
+        result = compute_asymmetry(
+            mesh=mesh,
+            nasion=nasion,
+            tragus_left=tragus_left,
+            tragus_right=tragus_right,
+            threshold_mm=request.threshold_mm,
+        )
+    except ValueError as exc:
+        # build_head_frame бросает ValueError при коллинеарных точках
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Ошибка вычисления асимметрии: {exc}")
+
+    result["vertex_count"] = len(mesh.vertices)
+    return result
+
 

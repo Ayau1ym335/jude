@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.geometry import router as geometry_router
+from app.routers.landmarks import router as landmarks_router
 from app.routers.patients import router as patient_router
 from app.routers.projects import router as project_router
 from app.routers.scans import router as scan_router
@@ -27,6 +28,7 @@ app.add_middleware(
 
 app.include_router(patient_router)
 app.include_router(scan_router)
+app.include_router(landmarks_router)
 app.include_router(project_router)
 app.include_router(geometry_router)
 app.include_router(trim_lines_router)
