@@ -112,18 +112,23 @@ def process_scan_validation(scan_id: str, file_url: str):
                     preview_ext = os.path.splitext(file_url)[1] or ".stl"
                     preview_file_name = f"preview_{scan_id}{preview_ext}"
                     preview_path = f"previews/{preview_file_name}"
-                    
+
                     with tempfile.NamedTemporaryFile(delete=False, suffix=preview_ext) as p_tmp:
-                        preview_mesh.export(p_tmp.name)
-                        with open(p_tmp.name, "rb") as f:
+                        p_tmp_name = p_tmp.name
+                    # Файл закрыт — теперь экспортируем и читаем без PermissionError на Windows
+                    try:
+                        preview_mesh.export(p_tmp_name)
+                        with open(p_tmp_name, "rb") as f:
                             db.storage.from_("scan-files").upload(
-                                path=preview_path, 
+                                path=preview_path,
                                 file=f.read(),
-                                file_options={"x-upsert": "true"}
+                                file_options={"x-upsert": "true"},
                             )
-                        os.remove(p_tmp.name)
-                    
-                    preview_mesh_url = preview_path
+                        preview_mesh_url = preview_path
+                    finally:
+                        if os.path.exists(p_tmp_name):
+                            os.remove(p_tmp_name)
+
             except Exception as e:
                 print(f"Ошибка при сохранении превью скана {scan_id}: {e}")
                 
