@@ -299,7 +299,7 @@ export default function ProjectViewerPage() {
           </Button>
           {project && (
             <span className="text-sm text-jude-muted">
-              {project.afo_type}
+              {project.helmet_type}
             </span>
           )}
           {scan && (
