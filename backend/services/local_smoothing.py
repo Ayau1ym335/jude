@@ -27,7 +27,6 @@ import logging
 
 import numpy as np
 import trimesh
-import trimesh.smoothing
 from pygeodesic import geodesic
 
 logger = logging.getLogger(__name__)
@@ -94,64 +93,6 @@ def compute_falloff_weights(
     # Линейное затухание: weight = max(0, 1 - dist / radius)
     weights = np.clip(1.0 - (distances / radius), 0.0, 1.0)
     return weights
-
-
-def apply_local_smoothing(
-    mesh: trimesh.Trimesh,
-    center_vertex_idx: int,
-    radius: float = 15.0,
-    iterations: int = 5,
-    lamb: float = 0.5,
-) -> trimesh.Trimesh:
-    """
-    Применяет локальное Лапласово сглаживание к mesh в зоне вокруг
-    указанной вершины. Вершины вне зоны влияния (weight == 0) заморожены.
-
-    Parameters
-    ----------
-    mesh : trimesh.Trimesh
-        Входной mesh. Изменения вносятся в копию — оригинал не модифицируется.
-    center_vertex_idx : int
-        Центр зоны сглаживания (индекс вершины).
-    radius : float
-        Радиус зоны влияния в единицах координат mesh (обычно мм).
-        Стартовое значение 15 мм — инженерный ориентир, не клинически
-        провалидированная константа.
-    iterations : int
-        Количество итераций Лапласова сглаживания.
-    lamb : float
-        Скорость диффузии (0 = нет сглаживания, 1 = максимум).
-
-    Returns
-    -------
-    trimesh.Trimesh
-        Новый mesh с локально сглаженной геометрией.
-    """
-    # Копируем mesh чтобы не мутировать входной объект
-    result = mesh.copy()
-
-    # Вычисляем веса (геодезическое затухание)
-    weights = compute_falloff_weights(result, center_vertex_idx, radius)
-
-    # Индексы вершин вне зоны влияния → pinned (заморожены)
-    pinned = np.where(weights == 0.0)[0].tolist()
-
-    # Вычисляем оператор Лапласа с заморозкой внешних вершин
-    laplacian_op = trimesh.smoothing.laplacian_calculation(
-        result,
-        equal_weight=True,
-        pinned_vertices=pinned,
-    )
-
-    # Применяем сглаживание (in-place на копии)
-    trimesh.smoothing.filter_laplacian(
-        result,
-        lamb=lamb,
-        iterations=iterations,
-        laplacian_operator=laplacian_op,
-    )
-
-    return result
 
 
 def compute_falloff_weights_optimized(
