@@ -236,6 +236,11 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
           object.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
               (child as THREE.Mesh).material = material;
+              // OBJ loads as a Group; capture the first Mesh so that
+              // getMesh(), applyVertexColors() and raycasting work correctly.
+              if (!meshRef.current) {
+                meshRef.current = child as THREE.Mesh;
+              }
             }
           });
           centerAndAddObject(object);
