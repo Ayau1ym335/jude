@@ -31,6 +31,11 @@ from pygeodesic import geodesic
 
 logger = logging.getLogger(__name__)
 
+# Стартовые инженерные ориентиры сглаживания
+DEFAULT_SMOOTHING_RADIUS_MM: float = 15.0
+DEFAULT_SMOOTHING_INTENSITY: float = 0.5
+DEFAULT_SMOOTHING_ITERATIONS: int = 3
+
 
 def compute_falloff_weights(
     mesh: trimesh.Trimesh,
@@ -208,9 +213,9 @@ def compute_falloff_weights_optimized(
 def apply_local_laplacian_smoothing(
     mesh: trimesh.Trimesh,
     center_vertex_idx: int,
-    radius: float,
-    intensity: float = 0.5,
-    iterations: int = 3,
+    radius: float = DEFAULT_SMOOTHING_RADIUS_MM,
+    intensity: float = DEFAULT_SMOOTHING_INTENSITY,
+    iterations: int = DEFAULT_SMOOTHING_ITERATIONS,
 ) -> trimesh.Trimesh:
     """
     Применяет Laplacian smoothing локально, в радиусе от заданной вершины,

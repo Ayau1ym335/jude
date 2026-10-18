@@ -1,8 +1,5 @@
 """
-CRUD для TrimLine — линии обрезки PLS, привязанные к версии проекта.
-
-POST /trim-lines               — сохранить линию обрезки
-GET  /trim-lines/{version_id}  — получить все линии для версии
+CRUD для TrimLine — линии обрезки краниального шлема, привязанные к версии проекта.
 """
 
 from uuid import UUID

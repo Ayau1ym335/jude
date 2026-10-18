@@ -15,11 +15,11 @@ class PatientBase(BaseModel):
         examples=["P-2026-0001"],
     )
     side: Optional[Literal["left", "right", "both"]] = Field(
-        default=None, description="Сторона, для которой проектируется AFO."
+        default=None, description="Сторона патологии (left, right, both)."
     )
     anthropometric_data: Optional[dict] = Field(
         default=None,
-        description="Гибкое поле: рост, вес, размер стопы и т.д. "
+        description="Гибкое поле антропометрических данных: окружность головы, форма черепа и т.д. "
         "Специально jsonb/dict, чтобы не переделывать схему при добавлении новых параметров.",
     )
 

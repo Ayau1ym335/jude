@@ -2,8 +2,9 @@
 Pydantic-схемы для анатомических ориентиров головы (head_landmarks).
 """
 
+import math
 from datetime import datetime
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -23,7 +24,6 @@ def _validate_finite_coords(v: list[float]) -> list[float]:
     for i, c in enumerate(v):
         if not isinstance(c, (int, float)):
             raise ValueError(f"Координата [{i}] должна быть числом, получено: {type(c).__name__}.")
-        import math
         if not math.isfinite(c):
             raise ValueError(f"Координата [{i}] должна быть конечным числом, получено: {c}.")
     return [float(c) for c in v]

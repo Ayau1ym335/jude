@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-# Три типа линий PLS (Posterior Leaf Spring).
+# Три типа линий обрезки краниального шлема.
 # Числовые константы в коде (радиус, толщина) — инженерные ориентиры,
 # не клинически провалидированные значения.
 LineType = Literal["proximal", "ankle", "distal"]
@@ -18,8 +18,8 @@ class TrimLineCreate(BaseModel):
     line_type: LineType = Field(
         ...,
         description=(
-            "Тип линии PLS: 'proximal' — проксимальный край, "
-            "'ankle' — линия голеностопа, 'distal' — дистальный край."
+            "Тип линии: 'proximal' — верхний край, "
+            "'ankle' — линия виска/лба, 'distal' — нижний край."
         ),
     )
     anchor_points: List[List[float]] = Field(

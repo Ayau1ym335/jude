@@ -46,3 +46,17 @@ class ProjectList(BaseModel):
     items: List[ProjectRead]
     total: int
     patient_id: Optional[UUID] = None
+
+
+class ProjectVersionRead(BaseModel):
+    """Краткое представление версии проекта (для TrimLinesPanel)."""
+
+    id: UUID
+    project_id: UUID
+    parent_version_id: Optional[UUID] = None
+    mesh_url: str
+    author_type: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

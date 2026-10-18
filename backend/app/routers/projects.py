@@ -6,29 +6,18 @@ GET  /projects/{id}                   — получение проекта
 GET  /projects/{id}/versions          — список версий проекта
 """
 
-from datetime import datetime
-from uuid import UUID
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.dependencies.auth import CurrentUser, get_current_user
-from pydantic import BaseModel
-from app.schemas.project import ProjectCreate, ProjectList, ProjectRead
-
-
-class ProjectVersionRead(BaseModel):
-    """Краткое представление версии проекта (для TrimLinesPanel)."""
-
-    id: UUID
-    project_id: UUID
-    parent_version_id: Optional[UUID] = None
-    mesh_url: str
-    author_type: Optional[str] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectList,
+    ProjectRead,
+    ProjectVersionRead,
+)
 from app.services.database import get_supabase
 
 router = APIRouter(prefix="/projects", tags=["projects"])
