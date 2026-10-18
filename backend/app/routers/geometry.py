@@ -24,6 +24,12 @@ from app.services.mesh_loader import load_mesh_from_url
 from app.services.local_smoothing import apply_local_laplacian_smoothing
 from app.services.versioning import save_mesh_as_new_version
 from app.services.asymmetry import compute_asymmetry, ASYMMETRY_THRESHOLD_MM
+from app.services.head_metrics import (
+    compute_head_metrics,
+    DEFAULT_Z_MIN_MM,
+    DEFAULT_Z_MAX_MM,
+    DEFAULT_STEP_MM,
+)
 from app.services.database import get_supabase
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
@@ -256,5 +262,95 @@ async def asymmetry_map_endpoint(request: AsymmetryRequest):
 
     result["vertex_count"] = len(mesh.vertices)
     return result
+
+
+# ─── POST /geometry/head-metrics ─────────────────────────────────────────────
+
+class HeadMetricsRequest(BaseModel):
+    scan_id: str
+    h_slice: float | None = None
+    z_min: float = DEFAULT_Z_MIN_MM
+    z_max: float = DEFAULT_Z_MAX_MM
+    step: float = DEFAULT_STEP_MM
+
+
+class HeadMetricsResponse(BaseModel):
+    slice_height_mm: float
+    width_mm: float
+    length_mm: float
+    cephalic_index: float
+    circumference_mm: float
+    contour: list[list[float]]
+
+
+@router.post("/head-metrics", response_model=HeadMetricsResponse)
+async def head_metrics_endpoint(request: HeadMetricsRequest):
+    """
+    Вычисляет метрики поперечного сечения головы на уровне h_slice:
+      - slice_height_mm: уровень горизонтального сечения z (мм)
+      - width_mm:        ширина головы (влево-вправо вдоль оси X, мм)
+      - length_mm:       длина головы (вперёд-назад вдоль оси Y, мм)
+      - cephalic_index:  цефалический индекс CI = (ширина / длина) * 100 %
+      - circumference_mm: окружность головы (периметр контура, мм)
+      - contour:         замкнутый 2D-контур [[x, y], ...] для визуализации
+
+    Если h_slice не задан, уровень определяется автоматически в диапазоне [z_min, z_max]
+    как высота максимального периметра.
+
+    Требует заранее сохранённых ориентиров (PUT /scans/{id}/landmarks).
+    """
+    db = get_supabase()
+
+    # 1. Загрузить ориентиры из БД
+    landmarks_resp = (
+        db.table("head_landmarks")
+        .select("nasion, tragus_left, tragus_right")
+        .eq("scan_id", request.scan_id)
+        .maybe_single()
+        .execute()
+    )
+
+    if landmarks_resp.data is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Анатомические ориентиры для скана {request.scan_id} не найдены. "
+                "Расставьте метки (насион, левый и правый козелок) через "
+                "PUT /scans/{id}/landmarks перед вычислением метрик головы."
+            ),
+        )
+
+    lm = landmarks_resp.data
+    nasion: list[float]       = lm["nasion"]
+    tragus_left: list[float]  = lm["tragus_left"]
+    tragus_right: list[float] = lm["tragus_right"]
+
+    # 2. Загрузить mesh
+    try:
+        mesh = load_mesh_from_url(request.scan_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Ошибка загрузки mesh: {exc}")
+
+    # 3. Вычислить метрики головы
+    try:
+        metrics = compute_head_metrics(
+            mesh=mesh,
+            nasion=nasion,
+            tragus_left=tragus_left,
+            tragus_right=tragus_right,
+            h_slice=request.h_slice,
+            z_min=request.z_min,
+            z_max=request.z_max,
+            step=request.step,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Ошибка вычисления метрик головы: {exc}")
+
+    return metrics
+
 
 

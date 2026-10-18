@@ -11,3 +11,5 @@ httpx
 pydantic
 pygeodesic
 rtree
+networkx
+shapely

@@ -75,7 +75,7 @@
 ```bash
 cd backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate | Mac/Linux: source .venv/bin/activate
+.venv\Scripts\activate 
 pip install -r requirements.txt
 ```
 `.env.local` в `backend/`:
