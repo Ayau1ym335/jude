@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import sys
-import io
 # Force UTF-8 output on Windows
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -24,7 +23,6 @@ import traceback
 import json
 import time
 from pathlib import Path
-from typing import Any
 
 # ─── Настройка путей (вызывается из backend/) ─────────────────────────────────
 BACKEND_DIR = Path(__file__).parent.parent.resolve()
@@ -121,12 +119,12 @@ def generate_synthetic_leg(ankle_radius: float = 25.0, ankle_height: float = 30.
     try:
         combined = trimesh.boolean.union(meshes, engine="manifold")
         union_method = "manifold3d"
-    except Exception as e1:
+    except Exception:
         # Попытка 2: blender
         try:
             combined = trimesh.boolean.union(meshes, engine="blender")
             union_method = "blender"
-        except Exception as e2:
+        except Exception:
             # Fallback: concatenate без boolean
             combined = trimesh.util.concatenate(meshes)
             union_method = "concatenate_no_boolean"
@@ -135,7 +133,7 @@ def generate_synthetic_leg(ankle_radius: float = 25.0, ankle_height: float = 30.
 
 
 # ── Генерация «нормальной» геометрии ──────────────────────────────────────────
-print(f"\n[1.1] Генерация synthetic_leg_normal (ankle_radius=25)...")
+print("\n[1.1] Генерация synthetic_leg_normal (ankle_radius=25)...")
 try:
     mesh_normal, method_normal = generate_synthetic_leg(ankle_radius=25, ankle_height=30, label="normal")
     mesh_normal.export(str(NORMAL_STL_PATH))
@@ -157,7 +155,7 @@ except Exception as e:
     mesh_normal = None
 
 # ── Генерация «стресс-тест» — острое сужение ──────────────────────────────────
-print(f"\n[1.2] Генерация synthetic_leg_sharp_ankle (ankle_radius=15, height=15 — стресс)...")
+print("\n[1.2] Генерация synthetic_leg_sharp_ankle (ankle_radius=15, height=15 — стресс)...")
 try:
     mesh_sharp, method_sharp = generate_synthetic_leg(ankle_radius=15, ankle_height=15, label="sharp")
     mesh_sharp.export(str(SHARP_STL_PATH))
@@ -180,7 +178,7 @@ except Exception as e:
 
 
 # ── Валидация через существующий app.geometry.validator ───────────────────────
-print(f"\n[1.3] Валидация синтетических сканов через app.geometry.validator.validate_mesh...")
+print("\n[1.3] Валидация синтетических сканов через app.geometry.validator.validate_mesh...")
 try:
     from app.geometry.validator import validate_mesh
 
@@ -491,7 +489,6 @@ step_detail = ""
 mesh_to_save = smoothed_mesh_p1 if smoothed_mesh_p1 is not None else current_mesh_p1
 if mesh_to_save is not None:
     try:
-        import io
         stl_bytes = mesh_to_save.export(file_type="stl")
         size_kb = len(stl_bytes) / 1024
         ok(f"Mesh сериализован в STL: {size_kb:.1f} КБ")
@@ -665,7 +662,7 @@ if inverted_mesh_p2 is not None:
             std_dist = float(dists.std())
             min_dist = float(dists.min())
             max_dist = float(dists.max())
-            ok(f"Point-to-surface distance после offset (должно быть ≈4 мм):")
+            ok("Point-to-surface distance после offset (должно быть ≈4 мм):")
             ok(f"  mean={mean_dist:.3f}, std={std_dist:.3f}, min={min_dist:.3f}, max={max_dist:.3f}")
 
             if mean_dist < 1.0:
@@ -863,7 +860,7 @@ if SMOOTHING_OK and test_mesh is not None:
         edge_result_g += " | Плохой vidx: нет ошибки (проблема)"
     except IndexError as e:
         ok(f"IndexError правильно поднят: {e}")
-        edge_result_g += f" | Плохой vidx: IndexError OK"
+        edge_result_g += " | Плохой vidx: IndexError OK"
     except Exception as e:
         warn(f"Другое исключение для bad_idx: {type(e).__name__}: {e}")
         edge_result_g += f" | Плохой vidx: {type(e).__name__}"
@@ -950,7 +947,7 @@ REPORT["edge_cases"]["boolean_union_backend"] = union_backend
 # 3. Проверяем версионирование — импорт without supabase env vars
 print("\n[versioning] Проверка versioning без Supabase credentials...")
 try:
-    from versioning import save_mesh_as_new_version, MESH_STORAGE_BUCKET, PROCESSED_MESH_PREFIX
+    from versioning import MESH_STORAGE_BUCKET, PROCESSED_MESH_PREFIX
     ok(f"versioning.py: BUCKET='{MESH_STORAGE_BUCKET}', PREFIX='{PROCESSED_MESH_PREFIX}'")
     info("save_mesh_as_new_version требует живого Supabase — протестировать без него невозможно")
     REPORT["not_tested"].append("save_mesh_as_new_version (требует живой Supabase)")

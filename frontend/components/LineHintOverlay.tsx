@@ -100,6 +100,7 @@ export default function LineHintOverlay({
     // Захватываем тип в замыкании — activeLineType гарантированно не null здесь,
     // т.к. useEffect зависит от него и мы проверили !activeLineType выше.
     const lineType = activeLineType; // LineType (not null)
+    const overlayCanvas = overlayRef.current;
 
     let rafId: number;
     let cancelled = false;
@@ -235,10 +236,9 @@ export default function LineHintOverlay({
       cancelled = true;
       cancelAnimationFrame(rafId);
       // Очищаем canvas при смене активной линии или размонтировании
-      const canvas = overlayRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      if (overlayCanvas) {
+        const ctx = overlayCanvas.getContext("2d");
+        ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       }
     };
   }, [activeLineType, viewerRef]);

@@ -17,10 +17,7 @@ backend/services/versioning.py
     id, project_id, parent_version_id, mesh_url, author_type, created_at
 """
 
-import io
-import os
 import uuid
-import tempfile
 
 import trimesh
 

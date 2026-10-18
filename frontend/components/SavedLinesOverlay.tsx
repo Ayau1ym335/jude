@@ -50,6 +50,7 @@ export default function SavedLinesOverlay({
   const threeRef = useRef<typeof import("three") | null>(null);
 
   useEffect(() => {
+    const overlayCanvas = overlayRef.current;
     let rafId: number;
     let cancelled = false;
 
@@ -129,10 +130,9 @@ export default function SavedLinesOverlay({
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
-      const canvas = overlayRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      if (overlayCanvas) {
+        const ctx = overlayCanvas.getContext("2d");
+        ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       }
     };
   }, [savedLines, activeLineType, viewerRef]);

@@ -22,9 +22,7 @@ backend/scripts/seed_test_scan.py
 import os
 import sys
 import io
-import tempfile
 import json
-import uuid
 from pathlib import Path
 from datetime import datetime
 

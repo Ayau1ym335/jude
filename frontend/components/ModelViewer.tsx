@@ -297,7 +297,7 @@ export const ModelViewer = forwardRef<ModelViewerHandle, ModelViewerProps>(
         container.removeChild(renderer.domElement);
       }
     };
-  }, [file]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [file]);
 
   const handleReset = () => {
     if (cameraRef.current && controlsRef.current && initialViewRef.current) {

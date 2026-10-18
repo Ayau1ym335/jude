@@ -1,4 +1,4 @@
-import test, { describe, it } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
@@ -69,14 +69,14 @@ describe("Asymmetry Colormap (valueToColor & buildColorBuffer)", () => {
   });
 
   it("должен давать синий цвет для отрицательных (вдавленных) участков", () => {
-    const [r, g, b] = valueToColor(-10, 10);
+    const [r, , b] = valueToColor(-10, 10);
     // #2166ac: rgb(33, 102, 172) -> r~0.129, g~0.4, b~0.67
     assert.ok(b > r, `Ожидался синий оттенок (b > r), получено r=${r}, b=${b}`);
     assert.ok(r < 0.2, `Красный должен быть приглушён, получено r=${r}`);
   });
 
   it("должен давать красный цвет для положительных (выступающих) участков", () => {
-    const [r, g, b] = valueToColor(10, 10);
+    const [r, , b] = valueToColor(10, 10);
     // #d6604d: rgb(214, 96, 77) -> r~0.84, g~0.38, b~0.30
     assert.ok(r > b, `Ожидался красный оттенок (r > b), получено r=${r}, b=${b}`);
     assert.ok(b < 0.4, `Синий должен быть приглушён, получено b=${b}`);
@@ -263,7 +263,8 @@ describe("AsymmetryOverlay - валидация числа вершин", () => 
     const mock = createMockViewerHandle(100); // 100 вершин
     const mesh = mock.handle.getMesh();
     assert.ok(mesh);
-    const vertexCount = (mesh as any).geometry.attributes.position.count;
+    const geometry = mesh.geometry as THREE.BufferGeometry;
+    const vertexCount = geometry.attributes.position.count;
     assert.equal(vertexCount, 100);
 
     const wrongCountValues = new Array(50).fill(1.0); // 50 значений вместо 100
@@ -271,9 +272,9 @@ describe("AsymmetryOverlay - валидация числа вершин", () => 
     let consoleErrorCalled = false;
     let consoleErrorMessage = "";
     const origError = console.error;
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       consoleErrorCalled = true;
-      consoleErrorMessage = args.join(" ");
+      consoleErrorMessage = args.map(String).join(" ");
     };
 
     try {

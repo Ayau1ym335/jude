@@ -207,7 +207,6 @@ class TestHeadFrameRotated:
 class TestHeadFrameErrors:
     def test_collinear_points_raise_value_error(self):
         """Коллинеарные точки → ValueError."""
-        nasion = [0.0, 10.0, 0.0]
         tl = [-5.0, 0.0, 0.0]
         tr = [5.0, 0.0, 0.0]
         # Насион лежит на той же оси X, что и козелки (и на origin=0,0,0 — вычтем)

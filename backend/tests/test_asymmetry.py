@@ -205,7 +205,7 @@ class TestRotatedHeadWithCorrectLandmarks:
 
         print(f"\n[head_symmetric]  mean_abs={result_sym['mean_abs']:.4f} мм")
         print(f"[head_rotated]    mean_abs={result_rot['mean_abs']:.4f} мм")
-        print(f"  (поворот R(z=30°, x=15°) с правильными ориентирами)")
+        print("  (поворот R(z=30°, x=15°) с правильными ориентирами)")
 
         # Допуск 0.5 мм: правильные метки должны полностью компенсировать поворот
         assert result_rot["mean_abs"] < 0.5, (
@@ -291,7 +291,8 @@ if __name__ == "__main__":
     R_mat = _rotation_matrix(30, 15)
     m_sym = _make_sphere()
     m_rot = _make_sphere()
-    T = np.eye(4); T[:3, :3] = R_mat
+    T = np.eye(4)
+    T[:3, :3] = R_mat
     m_rot.apply_transform(T)
     nr, tl_r, tr_r = _apply_rotation_to_landmarks(R_mat, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
     r_rot = compute_asymmetry(m_rot, nr, tl_r, tr_r)
@@ -310,6 +311,6 @@ if __name__ == "__main__":
     print(f"  Время: {elapsed:.2f} с")
     print(f"  min={met['min']:.4f}  max={met['max']:.4f}  mean_abs={met['mean_abs']:.4f}")
     if elapsed > 5:
-        print(f"  ⚠ ПРЕВЫШЕН ЛИМИТ 5 с — требуется оптимизация")
+        print("  ⚠ ПРЕВЫШЕН ЛИМИТ 5 с — требуется оптимизация")
     else:
-        print(f"  ✓ Уложились в 5 с")
+        print("  ✓ Уложились в 5 с")
