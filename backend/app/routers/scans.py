@@ -10,7 +10,6 @@ GET  /scans/{id}   — получение метаданных и статуса
 
 import os
 import tempfile
-import httpx
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -18,6 +17,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from app.dependencies.auth import CurrentUser, get_current_user
 from app.schemas.scan import ScanCreate, ScanRead
 from app.services.database import get_supabase
+from app.services.mesh_loader import download_scan_file_to_tempfile
 from app.geometry.validator import validate_mesh
 from app.geometry.messages import VALIDATION_MESSAGES
 from app.geometry.preview import create_preview_mesh
@@ -88,24 +88,8 @@ def process_scan_validation(scan_id: str, file_url: str):
     preview_face_count = None
     
     try:
-        # Шаг 2: Скачать файл
-        if file_url.startswith("http://") or file_url.startswith("https://"):
-            with httpx.Client() as client:
-                resp = client.get(file_url)
-                resp.raise_for_status()
-                file_bytes = resp.content
-        else:
-            # Считаем, что это путь в бакете 'scan-files' (Supabase Storage)
-            file_bytes = db.storage.from_("scan-files").download(file_url)
-            
-        # Сохраняем во временный файл
-        ext = os.path.splitext(file_url)[1]
-        if not ext:
-            ext = ".stl"
-            
-        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-            tmp.write(file_bytes)
-            tmp_path = tmp.name
+        # Шаг 2: Скачать файл во временный файл
+        tmp_path = download_scan_file_to_tempfile(file_url, db=db)
             
         # Шаг 3: Запустить validate_mesh()
         result = validate_mesh(tmp_path)

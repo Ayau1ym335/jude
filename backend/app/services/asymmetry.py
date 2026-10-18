@@ -24,7 +24,7 @@ import numpy as np
 import trimesh
 from numpy.typing import NDArray
 
-from services.head_frame import build_head_frame, to_head_frame
+from app.services.head_frame import build_head_frame, to_head_frame
 
 # ─── Клинический порог (уточнить у клиники) ──────────────────────────────────
 # 3 мм — инженерный ориентир для краниальных ортезов.

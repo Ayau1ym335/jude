@@ -25,7 +25,7 @@ import trimesh
 # Добавляем backend в путь (запуск из backend/ или из корня)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.head_frame import (
+from app.services.head_frame import (
     build_head_frame,
     to_head_frame,
     estimate_landmarks_pca,

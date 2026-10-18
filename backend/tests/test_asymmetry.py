@@ -19,13 +19,12 @@ import math
 import time
 
 import numpy as np
-import pytest
 import trimesh
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.asymmetry import asymmetry_map, asymmetry_metrics, compute_asymmetry
-from services.head_frame import build_head_frame
+from app.services.asymmetry import asymmetry_map, asymmetry_metrics, compute_asymmetry
+from app.services.head_frame import build_head_frame
 
 
 # ──────────────────────────────────────────────────────────────────────────────

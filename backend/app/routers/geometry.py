@@ -21,9 +21,9 @@ from app.services.geodesic_curve import (
     find_nearest_vertex_index,  # используем существующую, не дублируем
 )
 from app.services.mesh_loader import load_mesh_from_url
-from services.local_smoothing import apply_local_laplacian_smoothing
-from services.versioning import save_mesh_as_new_version
-from services.asymmetry import compute_asymmetry, ASYMMETRY_THRESHOLD_MM
+from app.services.local_smoothing import apply_local_laplacian_smoothing
+from app.services.versioning import save_mesh_as_new_version
+from app.services.asymmetry import compute_asymmetry, ASYMMETRY_THRESHOLD_MM
 from app.services.database import get_supabase
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
