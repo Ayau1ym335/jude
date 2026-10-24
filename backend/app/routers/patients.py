@@ -25,7 +25,7 @@ def create_patient(payload: PatientCreate) -> PatientRead:
     db = get_supabase()
 
     data = {
-        "clinic_id": str(payload.clinic_id),
+        "clinic_id": str(payload.clinic_id) if payload.clinic_id else None,
         "anonymized_identifier": payload.anonymized_identifier,
         "side": payload.side,
         "anthropometric_data": payload.anthropometric_data,

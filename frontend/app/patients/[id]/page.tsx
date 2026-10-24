@@ -12,6 +12,7 @@ import Badge from "@/components/ui/Badge";
 import Alert from "@/components/ui/Alert";
 import Spinner from "@/components/ui/Spinner";
 import Button from "@/components/ui/Button";
+import HeadDynamicsChart from "@/components/HeadDynamicsChart";
 
 interface Patient {
   id: string;
@@ -88,7 +89,7 @@ export default function PatientDetailPage() {
     async function fetchData() {
       setLoading(true);
       setError(null);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const headers = { Authorization: `Bearer ${session!.access_token}` };
 
       try {
@@ -194,6 +195,12 @@ export default function PatientDetailPage() {
               </ul>
             )}
           </div>
+
+          {/* ─── Динамика асимметрии черепа (CVAI) по визитам ─── */}
+          <HeadDynamicsChart
+            patientId={patientId}
+            accessToken={session?.access_token}
+          />
         </>
       )}
     </div>

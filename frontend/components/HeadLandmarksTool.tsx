@@ -144,7 +144,7 @@ export default function HeadLandmarksTool({
   onLandmarksSaved,
   embedded = false,
 }: HeadLandmarksToolProps) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   const [landmarks, setLandmarks] = useState<Landmarks>({
     nasion: null,

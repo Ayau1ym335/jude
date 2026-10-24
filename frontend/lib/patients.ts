@@ -29,8 +29,7 @@ export async function fetchPatients(
   accessToken: string,
   limit = 100,
 ): Promise<PatientListResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) throw new Error("NEXT_PUBLIC_API_URL не настроен");
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   const response = await fetch(`${apiUrl}/patients?limit=${limit}&offset=0`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -50,8 +49,7 @@ export async function createPatient(
     side?: PatientSide | null;
   },
 ): Promise<Patient> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) throw new Error("NEXT_PUBLIC_API_URL не настроен");
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   const response = await fetch(`${apiUrl}/patients`, {
     method: "POST",

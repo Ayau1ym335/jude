@@ -256,8 +256,8 @@ export default function AsymmetryOverlay({
         setLoading(true);
         setError(null);
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
-          const url = baseUrl ? `${baseUrl}/geometry/asymmetry-map` : "/api/geometry/asymmetry-map";
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+          const url = `${baseUrl}/geometry/asymmetry-map`;
 
           const headers: Record<string, string> = {
             "Content-Type": "application/json",

@@ -75,7 +75,7 @@ export default function DashboardPage() {
     async function fetchDashboard() {
       setLoading(true);
       setError(null);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const headers = { Authorization: `Bearer ${session!.access_token}` };
 
       try {

@@ -10,6 +10,7 @@ import TrimLinesPanel from "@/components/TrimLinesPanel";
 import SmoothingTool from "@/components/SmoothingTool";
 import HeadLandmarksTool from "@/components/HeadLandmarksTool";
 import AsymmetryOverlay from "@/components/AsymmetryOverlay";
+import HeadMetricsPanel from "@/components/HeadMetricsPanel";
 
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
@@ -103,7 +104,7 @@ export default function ProjectViewerPage() {
     if (!session || !projectId) return;
     setCreatingVersion(true);
     setError(null);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
     try {
       const res = await fetch(`${apiUrl}/projects/${projectId}/versions`, {
         method: "POST",
@@ -158,7 +159,7 @@ export default function ProjectViewerPage() {
       setScanFile(file);
 
       // Перезагружаем последнюю версию (backend создал новую запись в project_versions)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       if (session && projectId) {
         const headers = { Authorization: `Bearer ${session.access_token}` };
         const versionsRes = await fetch(
@@ -216,7 +217,7 @@ export default function ProjectViewerPage() {
     async function fetchAndPrepare() {
       setLoading(true);
       setError(null);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const headers = { Authorization: `Bearer ${session!.access_token}` };
 
       try {
@@ -391,6 +392,18 @@ export default function ProjectViewerPage() {
             accessToken={session.access_token}
             active={asymmetryActive}
             onToggleActive={setAsymmetryActive}
+            hasLandmarks={landmarksSaved}
+            embedded
+          />
+        )}
+
+        {/* HeadMetricsPanel — сечение черепа, CI, диагонали и CVAI */}
+        {scan && session && (project?.helmet_type === "cranial_remolding" || landmarksSaved) && (
+          <HeadMetricsPanel
+            viewerRef={viewerRef}
+            scanId={scan.id}
+            patientId={project?.patient_id}
+            accessToken={session.access_token}
             hasLandmarks={landmarksSaved}
             embedded
           />

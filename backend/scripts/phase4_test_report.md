@@ -1,5 +1,5 @@
 # Репорт тестирования Фазы 4 на синтетических данных
-**Дата:** 2026-10-18 20:55:28
+**Дата:** 2026-10-18 21:12:51
 **Окружение:** Python 3.12.3, Windows
 **Boolean union backend:** `none` (влияет на watertight синтетических mesh)
 
@@ -16,7 +16,7 @@
 |---|---|---|
 | Загрузка скана | [OK] OK | verts=790, faces=1568, watertight=True, nan=False |
 | Trim line proximal | [OK] OK | curve_points=32, время=0.00s |
-| Trim line ankle | [OK] OK | curve_points=39, время=0.00s |
+| Trim line ankle | [OK] OK | curve_points=39, время=0.01s |
 | Trim line distal | [OK] OK | curve_points=66, время=0.01s |
 | Сглаживание | [SKIP] SKIP | smoothing недоступен или mesh не загружен |
 | Версионирование | [FAIL] FAIL_IMPORT | No module named 'versioning' |

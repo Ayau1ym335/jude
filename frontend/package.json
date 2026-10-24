@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx -y tsx --test tests/AsymmetryOverlay.test.tsx"
+    "test": "npx -y tsx --test tests/AsymmetryOverlay.test.tsx tests/HeadMetrics.test.tsx tests/HeadDynamicsChart.test.tsx"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",

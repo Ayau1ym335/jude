@@ -58,7 +58,7 @@ export default function SmoothingTool({
     url: string;
   } | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   // Синхронизация preview-сферы в 3D-сцене с выбранной точкой и радиусом
   useEffect(() => {

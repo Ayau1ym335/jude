@@ -29,6 +29,7 @@ from app.services.head_metrics import (
     DEFAULT_Z_MIN_MM,
     DEFAULT_Z_MAX_MM,
     DEFAULT_STEP_MM,
+    DEFAULT_DIAG_ANGLE_DEG,
 )
 from app.services.database import get_supabase
 
@@ -272,6 +273,13 @@ class HeadMetricsRequest(BaseModel):
     z_min: float = DEFAULT_Z_MIN_MM
     z_max: float = DEFAULT_Z_MAX_MM
     step: float = DEFAULT_STEP_MM
+    diag_angle_deg: float = DEFAULT_DIAG_ANGLE_DEG
+
+
+class DiagPoints(BaseModel):
+    center: list[float]
+    diag_a: list[list[float]]
+    diag_b: list[list[float]]
 
 
 class HeadMetricsResponse(BaseModel):
@@ -280,6 +288,17 @@ class HeadMetricsResponse(BaseModel):
     length_mm: float
     cephalic_index: float
     circumference_mm: float
+    diag_a_mm: float
+    diag_b_mm: float
+    diag_a_label: str
+    diag_b_label: str
+    diag_angle_deg: float
+    cva_mm: float
+    cvai_percent: float
+    longer_diagonal: str
+    shorter_diagonal: str
+    asymmetry_direction: str
+    diag_points: DiagPoints
     contour: list[list[float]]
 
 
@@ -292,6 +311,12 @@ async def head_metrics_endpoint(request: HeadMetricsRequest):
       - length_mm:       длина головы (вперёд-назад вдоль оси Y, мм)
       - cephalic_index:  цефалический индекс CI = (ширина / длина) * 100 %
       - circumference_mm: окружность головы (периметр контура, мм)
+      - diag_a_mm, diag_b_mm: длины диагоналей под углом ±diag_angle от оси Y (мм)
+      - cva_mm:          разница диагоналей |A - B| (CVA, мм)
+      - cvai_percent:    индекс асимметрии свода черепа |A - B| / min(A, B) * 100 (CVAI, %)
+      - longer_diagonal, shorter_diagonal: более длинная и короткая диагональ
+      - asymmetry_direction: клинически понятное направление асимметрии (какая сторона уплощена/срезана)
+      - diag_points:     координаты центра и концов диагоналей для отрисовки
       - contour:         замкнутый 2D-контур [[x, y], ...] для визуализации
 
     Если h_slice не задан, уровень определяется автоматически в диапазоне [z_min, z_max]
@@ -344,6 +369,7 @@ async def head_metrics_endpoint(request: HeadMetricsRequest):
             z_min=request.z_min,
             z_max=request.z_max,
             step=request.step,
+            diag_angle_deg=request.diag_angle_deg,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

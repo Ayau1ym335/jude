@@ -1,5 +1,5 @@
 """
-Метрики формы головы (Head Metrics & Cephalic Index).
+Метрики формы головы и оценка асимметрии (Head Metrics & Cranial Vault Asymmetry Index).
 
 Клиническая логика:
 - Оценка формы черепа основана на поперечном горизонтальном сечении на уровне
@@ -10,15 +10,21 @@
 - Длина = максимальная протяжённость сечения вдоль оси Y (вперёд-назад).
 - Ширина = максимальная протяжённость сечения вдоль оси X (вправо-влево).
 - Цефалический индекс: CI = (Ширина / Длина) × 100 %.
+- Диагонали сечения: A (влево-назад / вправо-вперёд) и B (вправо-назад / влево-вперёд).
+  Измеряются под углом ±diag_angle (по умолчанию 30°, настраивается) от оси Y (вперёд).
+- CVA = |A − B| (мм).
+- CVAI = |A − B| / min(A, B) × 100 %.
 """
 
+import math
 import warnings
 import numpy as np
+from shapely.geometry import Polygon, LineString
 import trimesh
 
 from app.services.head_frame import build_head_frame, to_head_frame
 
-# ─── Клинические константы (уточнить и подтвердить у клиники) ────────────────
+# ─── Клинические константы (параметры в конфиг, подтвердить у клиники) ─────────
 # Диапазон поиска максимальной окружности над плоскостью козелков (мм).
 # У младенцев 0–12 мес. уровень наибольшей лобно-затылочной окружности
 # обычно находится на 20–50 мм выше линии козелков ушей.
@@ -26,13 +32,26 @@ DEFAULT_Z_MIN_MM = 20.0
 DEFAULT_Z_MAX_MM = 60.0
 DEFAULT_STEP_MM = 2.0
 
-# Клиническая классификация Cephalic Index (CI):
-#   Долихоцефалия (скафоцефалия): CI < 76% (удлинённый, узкий череп)
-#   Мезоцефалия (норма):          76% ≤ CI ≤ 83%
-#   Брахицефалия:                 CI > 83% (укороченный, широкий череп)
-#   Выраженная брахицефалия:      CI ≥ 90%
-CI_DOLICHO_MAX = 76.0
-CI_BRACHY_MIN = 83.0
+# Угол наклона диагоналей от сагиттальной оси Y (вперёд).
+# По клиническим протоколам (Loveday et al., CHOA) обычно используют 30° или 40°.
+DEFAULT_DIAG_ANGLE_DEG = 30.0
+
+# ─── Ориентировочные диапазоны для справки (подтвердить у клиники до исп.) ─────
+# ВНИМАНИЕ: значения ниже приведены исключительно как ориентировочные данные
+# из открытой научной литературы. Они НЕ являются утверждённой нормой или патологией
+# и не могут использоваться для постановки диагноза без утверждения клинической группой!
+CI_TENTATIVE_REFERENCE = {
+    "tentative_dolicho_max": 76.0,  # % (ориентировочно, подтвердить у клиники)
+    "tentative_brachy_min": 83.0,   # % (ориентировочно, подтвердить у клиники)
+    "note": "Ориентировочные пороги по литературе, подтвердить у клиники до использования",
+}
+
+CVAI_TENTATIVE_REFERENCE = {
+    "tentative_mild_pct": 3.5,      # % (ориентировочно, подтвердить у клиники)
+    "tentative_moderate_pct": 7.0,  # % (ориентировочно, подтвердить у клиники)
+    "tentative_severe_pct": 12.0,   # % (ориентировочно, подтвердить у клиники)
+    "note": "Ориентировочные пороги CVAI по литературе, подтвердить у клиники до использования",
+}
 
 
 def contour_perimeter(contour: np.ndarray) -> float:
@@ -85,12 +104,8 @@ def cross_section(mesh_head_frame: trimesh.Trimesh, z: float) -> np.ndarray:
         )
 
     # 3. Проверка замкнутости контуров
-    # path2d.discrete содержит список замкнутых полилиний (N, 2).
-    # Если все контуры разорваны (например, дыра в скане или граница),
-    # discrete будет пустым, а entities будут незамкнутыми.
     closed_curves = path2d.discrete
     if len(closed_curves) == 0:
-        # Проверяем, есть ли вообще линии (незамкнутые)
         raise ValueError(
             f"Сечение на уровне z={z_val:.1f} мм содержит незамкнутый контур "
             "(скан с дырой или срез проходит через край сетки). "
@@ -98,7 +113,6 @@ def cross_section(mesh_head_frame: trimesh.Trimesh, z: float) -> np.ndarray:
         )
 
     # 4. Выбор самого длинного замкнутого контура по периметру
-    # (отсекает мелкие замкнутые артефакты, уши или шум)
     best_contour = max(closed_curves, key=contour_perimeter)
     contour = np.asarray(best_contour, dtype=float)
 
@@ -171,9 +185,6 @@ def cephalic_index(contour: np.ndarray) -> tuple[float, float, float]:
     Returns:
         (width_mm, length_mm, cephalic_index)
         где cephalic_index = (width / length) * 100.0.
-
-    Raises:
-        ValueError: если контур вырожден или длина <= 0.
     """
     pts = np.asarray(contour, dtype=float)
     if len(pts) < 3 or pts.ndim != 2 or pts.shape[1] < 2:
@@ -191,6 +202,163 @@ def cephalic_index(contour: np.ndarray) -> tuple[float, float, float]:
     return width, length, ci
 
 
+def _ray_boundary_intersection(
+    center: np.ndarray,
+    direction: np.ndarray,
+    boundary,
+    max_length: float = 1000.0,
+) -> np.ndarray:
+    """
+    Находит точку пересечения луча из center в направлении direction с границей сечения.
+    Если пересечений несколько, выбирает ближайшую к центру вдоль луча.
+    """
+    ray = LineString([center, center + max_length * direction])
+    inter = ray.intersection(boundary)
+    if inter.is_empty:
+        raise ValueError(
+            "Луч из центра сечения не пересекает контур головы. "
+            "Проверьте замкнутость и топологию контура."
+        )
+
+    if hasattr(inter, "geoms"):
+        # Мультиточка: сортируем по расстоянию от центра вдоль луча
+        pts = [np.array([g.x, g.y]) for g in inter.geoms]
+        pts.sort(key=lambda p: float(np.linalg.norm(p - center)))
+        return pts[0]
+    elif hasattr(inter, "x"):
+        return np.array([inter.x, inter.y])
+    else:
+        coords = list(inter.coords)
+        return np.array(coords[0])
+
+
+def diagonals(
+    contour: np.ndarray,
+    angle_deg: float = DEFAULT_DIAG_ANGLE_DEG,
+    return_points: bool = False,
+):
+    """
+    Вычисляет две диагонали сечения черепа (хорды через центр под углом ±angle_deg от оси Y).
+
+    ВЫБОР ЦЕНТРА СЕЧЕНИЯ:
+      Используется центроид многоугольника сечения (Shapely Polygon.centroid),
+      а НЕ центр bounding box.
+      Обоснование:
+      1. Центроид представляет собой интегральный центр масс площади поперечного сечения,
+         учитывающий всю геометрию черепа, и инвариантен к неравномерной плотности точек.
+      2. Центр bounding box зависит исключительно от четырёх экстремальных точек
+         (xmin, xmax, ymin, ymax) и крайне чувствителен к одиночным выбросам сканирования,
+         выступам или волосам на периферии.
+
+    Ориентация диагоналей (СК головы: +X = вправо, +Y = вперёд):
+      - Диагональ A: угол +angle_deg от оси Y
+        Луч вперёд (+u_A): x > 0, y > 0 (право-вперёд / правый лоб)
+        Луч назад  (-u_A): x < 0, y < 0 (влево-назад / левый затылок)
+        Хорда: Лево-назад <-> Право-вперёд.
+      - Диагональ B: угол -angle_deg от оси Y
+        Луч вперёд (+u_B): x < 0, y > 0 (лево-вперёд / левый лоб)
+        Луч назад  (-u_B): x > 0, y < 0 (вправо-назад / правый затылок)
+        Хорда: Право-назад <-> Лево-вперёд.
+
+    Returns:
+        (diag_a, diag_b, a_label, b_label)
+        или если return_points=True:
+        (diag_a, diag_b, a_label, b_label, points_dict)
+    """
+    pts = np.asarray(contour, dtype=float)
+    if len(pts) < 3 or pts.ndim != 2 or pts.shape[1] < 2:
+        raise ValueError("Контур должен быть массивом формы (N, 2) с N >= 3 для вычисления диагоналей.")
+
+    poly = Polygon(pts)
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+
+    # Центроид контура (интегральный центр сечения)
+    center = np.array([poly.centroid.x, poly.centroid.y])
+
+    rad = math.radians(float(angle_deg))
+
+    # Диагональ A: +rad от оси Y (вектор вправо-вперёд)
+    u_A = np.array([math.sin(rad), math.cos(rad)])
+    p_A_front = _ray_boundary_intersection(center, u_A, poly.boundary)
+    p_A_back = _ray_boundary_intersection(center, -u_A, poly.boundary)
+    diag_a = float(np.linalg.norm(p_A_front - p_A_back))
+
+    # Диагональ B: -rad от оси Y (вектор влево-вперёд)
+    u_B = np.array([-math.sin(rad), math.cos(rad)])
+    p_B_front = _ray_boundary_intersection(center, u_B, poly.boundary)
+    p_B_back = _ray_boundary_intersection(center, -u_B, poly.boundary)
+    diag_b = float(np.linalg.norm(p_B_front - p_B_back))
+
+    a_label = f"A (влево-назад / вправо-вперёд, ±{angle_deg:.0f}°)"
+    b_label = f"B (вправо-назад / влево-вперёд, ∓{angle_deg:.0f}°)"
+
+    if return_points:
+        points_dict = {
+            "center": center.tolist(),
+            "diag_a": [p_A_back.tolist(), p_A_front.tolist()],
+            "diag_b": [p_B_back.tolist(), p_B_front.tolist()],
+        }
+        return diag_a, diag_b, a_label, b_label, points_dict
+
+    return diag_a, diag_b, a_label, b_label
+
+
+def cvai(diag_a: float, diag_b: float) -> tuple[float, float]:
+    """
+    Вычисляет асимметрию свода черепа:
+      - CVA  = |A − B| (мм)
+      - CVAI = |A − B| / min(A, B) × 100 (%)
+
+    Raises:
+        ValueError: если более короткая диагональ <= 0.
+    """
+    shorter = min(float(diag_a), float(diag_b))
+    if shorter <= 1e-6:
+        raise ValueError(f"Длина диагонали вырождена ({shorter:.3f} мм), невозможно рассчитать CVAI.")
+
+    diff = abs(float(diag_a) - float(diag_b))
+    cvai_val = 100.0 * diff / shorter
+    return diff, cvai_val
+
+
+def determine_asymmetry_direction(
+    diag_a: float,
+    diag_b: float,
+    threshold_diff_mm: float = 0.5,
+) -> dict:
+    """
+    Определяет сторону и направление асимметрии черепа по разнице диагоналей:
+      - Диагональ A: Левый затылок (назад-влево) <-> Правый лоб (вперёд-вправо)
+      - Диагональ B: Правый затылок (назад-вправо) <-> Левый лоб (вперёд-влево)
+
+    Клиническое правило:
+      - Если B < A: диагональ B короче -> правая задняя зона (правый затылок) уплощена / срезана.
+      - Если A < B: диагональ A короче -> левая задняя зона (левый затылок) уплощена / срезана.
+    """
+    diff = float(diag_a - diag_b)
+    if abs(diff) < threshold_diff_mm:
+        return {
+            "longer_diagonal": "equal",
+            "shorter_diagonal": "equal",
+            "asymmetry_direction": "Симметрично (разница диагоналей < 0.5 мм)",
+        }
+    elif diff > 0:
+        # diag_a > diag_b => B короче
+        return {
+            "longer_diagonal": "A",
+            "shorter_diagonal": "B",
+            "asymmetry_direction": "Правая задняя зона уплощена / срезана (диагональ B короче: уплощение правого затылка)",
+        }
+    else:
+        # diag_b > diag_a => A короче
+        return {
+            "longer_diagonal": "B",
+            "shorter_diagonal": "A",
+            "asymmetry_direction": "Левая задняя зона уплощена / срезана (диагональ A короче: уплощение левого затылка)",
+        }
+
+
 def compute_head_metrics(
     mesh: trimesh.Trimesh,
     nasion: list[float] | np.ndarray | None = None,
@@ -200,22 +368,18 @@ def compute_head_metrics(
     z_min: float = DEFAULT_Z_MIN_MM,
     z_max: float = DEFAULT_Z_MAX_MM,
     step: float = DEFAULT_STEP_MM,
+    diag_angle_deg: float = DEFAULT_DIAG_ANGLE_DEG,
 ) -> dict:
     """
-    Полный расчёт метрик головы:
+    Полный расчёт метрик головы и индекса асимметрии:
     1. Перевод скана в систему координат головы по ориентирам (если переданы).
     2. Выбор уровня сечения h_slice (автоматически или заданного вручную).
     3. Построение контура сечения.
     4. Расчёт ширины, длины, цефалического индекса (CI) и окружности головы.
+    5. Расчёт диагоналей A и B, CVA, CVAI и направления асимметрии.
 
     Returns:
-        dict с полями:
-          - slice_height_mm: уровень сечения z (мм)
-          - width_mm:        ширина сечения (мм, по оси X)
-          - length_mm:       длина сечения (мм, по оси Y)
-          - cephalic_index:  цефалический индекс CI (%)
-          - circumference_mm: периметр контура (мм)
-          - contour:         список координат [[x, y], ...] для 2D-визуализации
+        dict со всеми вычисленными параметрами.
     """
     # 1. Если ориентиры переданы — переводим меш в СК головы
     if nasion is not None and tragus_left is not None and tragus_right is not None:
@@ -234,9 +398,16 @@ def compute_head_metrics(
     # 3. Сечение
     contour = cross_section(mesh_head, z=selected_h)
 
-    # 4. Метрики
+    # 4. Метрики формы (размеры и CI)
     width, length, ci = cephalic_index(contour)
     circumference = contour_perimeter(contour)
+
+    # 5. Диагонали и асимметрия
+    diag_a, diag_b, a_label, b_label, diag_pts = diagonals(
+        contour, angle_deg=diag_angle_deg, return_points=True
+    )
+    cva_val, cvai_val = cvai(diag_a, diag_b)
+    direction_info = determine_asymmetry_direction(diag_a, diag_b)
 
     return {
         "slice_height_mm": round(selected_h, 2),
@@ -244,5 +415,20 @@ def compute_head_metrics(
         "length_mm": round(length, 2),
         "cephalic_index": round(ci, 2),
         "circumference_mm": round(circumference, 2),
+        "diag_a_mm": round(diag_a, 2),
+        "diag_b_mm": round(diag_b, 2),
+        "diag_a_label": a_label,
+        "diag_b_label": b_label,
+        "diag_angle_deg": round(float(diag_angle_deg), 1),
+        "cva_mm": round(cva_val, 2),
+        "cvai_percent": round(cvai_val, 2),
+        "longer_diagonal": direction_info["longer_diagonal"],
+        "shorter_diagonal": direction_info["shorter_diagonal"],
+        "asymmetry_direction": direction_info["asymmetry_direction"],
+        "diag_points": {
+            "center": [round(float(p), 3) for p in diag_pts["center"]],
+            "diag_a": [[round(float(c), 3) for c in pt] for pt in diag_pts["diag_a"]],
+            "diag_b": [[round(float(c), 3) for c in pt] for pt in diag_pts["diag_b"]],
+        },
         "contour": [[round(float(p[0]), 3), round(float(p[1]), 3)] for p in contour],
     }
