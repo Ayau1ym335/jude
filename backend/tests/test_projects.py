@@ -26,6 +26,7 @@ def test_project_create_with_helmet_type():
     p = ProjectCreate(patient_id=pid, scan_id=sid, helmet_type="cranial_remolding")
     assert p.helmet_type == "cranial_remolding"
     assert p.afo_type == "cranial_remolding"
+    assert p.product_type == "cranial_helmet"
     assert p.resolved_afo_type == "cranial_remolding"
 
 
@@ -52,6 +53,7 @@ def test_project_read_from_db_record_with_afo_type_only():
     read = ProjectRead(**record)
     assert read.afo_type == "cranial_remolding"
     assert read.helmet_type == "cranial_remolding"
+    assert read.product_type == "cranial_helmet"
 
 
 def test_create_project_inserts_afo_type_to_db():

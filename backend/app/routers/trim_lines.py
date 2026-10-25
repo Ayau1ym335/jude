@@ -12,7 +12,10 @@ from app.services.database import get_supabase
 router = APIRouter(prefix="/trim-lines", tags=["trim-lines"])
 
 TABLE = "trim_lines"
-VALID_LINE_TYPES = {"proximal", "ankle", "distal"}
+VALID_LINE_TYPES = {
+    "proximal", "ankle", "distal",
+    "ear_cutout", "forehead", "lower_edge",
+}
 
 
 @router.post("", response_model=TrimLineRead, status_code=status.HTTP_201_CREATED)
@@ -20,7 +23,7 @@ def save_trim_line(payload: TrimLineCreate) -> TrimLineRead:
     """
     Сохранить линию обрезки для указанной версии проекта.
 
-    Допустимые значения line_type: 'proximal', 'ankle', 'distal'.
+    Допустимые значения line_type: 'proximal'/'forehead', 'ankle'/'ear_cutout', 'distal'/'lower_edge'.
     geometry_data хранится как JSONB: {anchor_points: [...], curve_points: [...]}.
     """
     db = get_supabase()

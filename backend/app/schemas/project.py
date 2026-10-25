@@ -14,6 +14,10 @@ class ProjectCreate(BaseModel):
 
     patient_id: UUID = Field(..., description="Пациент, для которого создаётся проект.")
     scan_id: UUID = Field(..., description="Скан, на основе которого ведётся проектирование шлема.")
+    product_type: str = Field(
+        default="cranial_helmet",
+        description="Тип продукта (на платформе — краниальные шлемы 'cranial_helmet').",
+    )
     # Поле в БД называется afo_type (initial_schem.sql стр. 47).
     # Фронтенд (upload/page.tsx) передаёт helmet_type="cranial_remolding".
     # Поддерживаем оба поля для обратной совместимости.
@@ -33,6 +37,7 @@ class ProjectCreate(BaseModel):
             val = data.get("afo_type") or data.get("helmet_type") or "cranial_remolding"
             data.setdefault("afo_type", val)
             data.setdefault("helmet_type", val)
+            data.setdefault("product_type", "cranial_helmet")
         return data
 
     @property
@@ -46,6 +51,7 @@ class ProjectRead(BaseModel):
     id: UUID
     patient_id: UUID
     scan_id: UUID
+    product_type: str = "cranial_helmet"
     # Колонка в БД — afo_type (initial_schem.sql).
     # Фронтенд читает helmet_type во viewer/page.tsx и afo_type в patients/[id]/page.tsx.
     afo_type: str = "cranial_remolding"
@@ -62,6 +68,7 @@ class ProjectRead(BaseModel):
             val = data.get("afo_type") or data.get("helmet_type") or "cranial_remolding"
             data.setdefault("afo_type", val)
             data.setdefault("helmet_type", val)
+            data.setdefault("product_type", "cranial_helmet")
         return data
 
     class Config:
