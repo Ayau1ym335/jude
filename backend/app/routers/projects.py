@@ -107,7 +107,9 @@ def create_project(payload: ProjectCreate) -> ProjectRead:
     data = {
         "patient_id": str(payload.patient_id),
         "scan_id": str(payload.scan_id),
-        "helmet_type": payload.helmet_type,
+        # BUG-FIX: DB column is afo_type (initial_schem.sql line 47),
+        # not helmet_type. Inserting wrong name caused Supabase 400.
+        "afo_type": payload.resolved_afo_type,
         "status": "in_progress",
     }
 

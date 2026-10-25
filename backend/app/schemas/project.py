@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ProjectCreate(BaseModel):
@@ -14,14 +14,30 @@ class ProjectCreate(BaseModel):
 
     patient_id: UUID = Field(..., description="Пациент, для которого создаётся проект.")
     scan_id: UUID = Field(..., description="Скан, на основе которого ведётся проектирование шлема.")
-    helmet_type: Literal["cranial_remolding"] = Field(
-        default="cranial_remolding",
-        description=(
-            "Тип шлема. На MVP всегда 'cranial_remolding' — краниальный ремоделяционный ортез. "
-            "Поле заведено как enum сейчас, чтобы не менять контракт API при "
-            "добавлении других типов шлемов в будущем."
-        ),
+    # Поле в БД называется afo_type (initial_schem.sql стр. 47).
+    # Фронтенд (upload/page.tsx) передаёт helmet_type="cranial_remolding".
+    # Поддерживаем оба поля для обратной совместимости.
+    afo_type: Optional[str] = Field(
+        default=None,
+        description="Тип шлема/ортеза (в БД колонка afo_type).",
     )
+    helmet_type: Optional[str] = Field(
+        default=None,
+        description="Тип шлема (алиас к afo_type).",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_types(cls, data):
+        if isinstance(data, dict):
+            val = data.get("afo_type") or data.get("helmet_type") or "cranial_remolding"
+            data.setdefault("afo_type", val)
+            data.setdefault("helmet_type", val)
+        return data
+
+    @property
+    def resolved_afo_type(self) -> str:
+        return self.afo_type or self.helmet_type or "cranial_remolding"
 
 
 class ProjectRead(BaseModel):
@@ -30,11 +46,23 @@ class ProjectRead(BaseModel):
     id: UUID
     patient_id: UUID
     scan_id: UUID
-    helmet_type: str  # Тип шлема: cranial_remolding и др.
+    # Колонка в БД — afo_type (initial_schem.sql).
+    # Фронтенд читает helmet_type во viewer/page.tsx и afo_type в patients/[id]/page.tsx.
+    afo_type: str = "cranial_remolding"
+    helmet_type: str = "cranial_remolding"
     created_at: datetime
     status: Literal["in_progress", "exported", "manufactured"] = "in_progress"
     # Пополняется при list_projects через join со таблицей scans:
     scan_validation_status: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_types(cls, data):
+        if isinstance(data, dict):
+            val = data.get("afo_type") or data.get("helmet_type") or "cranial_remolding"
+            data.setdefault("afo_type", val)
+            data.setdefault("helmet_type", val)
+        return data
 
     class Config:
         from_attributes = True
