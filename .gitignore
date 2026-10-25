@@ -1,13 +1,14 @@
 # Environments
-.env
-.env.local
-backend/.env
-backend/.env.local
-frontend/.env.local
-frontend/.env*.local
+.env*
+!.env.example
+backend/.env*
+!backend/.env.example
+frontend/.env*
+!frontend/.env.example
 
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -49,6 +50,18 @@ frontend/.next/
 frontend/out/
 frontend/.vercel/
 frontend/*.tsbuildinfo
+
+# Supabase
+supabase/.temp/
+
+# 3D Mesh & Binary files (stored in Supabase Storage or data/)
+*.stl
+!backend/tests/fixtures/*.stl
+*.obj
+*.ply
+
+# Data directory (local heavy files outside git)
+data/
 
 # OS files
 .DS_Store
