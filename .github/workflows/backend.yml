@@ -1,11 +1,11 @@
-name: Backend
+name: Backend CI
 
 on:
   push:
+  pull_request:
 
 jobs:
- lint:
-
+  lint-and-test:
     runs-on: ubuntu-latest
 
     defaults:
@@ -13,14 +13,28 @@ jobs:
         working-directory: backend
 
     steps:
-
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
-
         with:
           python-version: "3.12"
 
-      - run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - run: ruff check .
+      - name: Ruff lint
+        run: python -m ruff check .
+
+      - name: Ruff format check
+        run: python -m ruff format --check .
+
+      - name: Pytest (unit tests only – skip integration)
+        run: |
+          python -m pytest tests/ \
+            --ignore=tests/test_rls.py \
+            -q --tb=short
+        env:
+          SUPABASE_URL: "http://localhost:54321"
+          SUPABASE_KEY: "test-anon-key"
+          SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key"
+          SECRET_KEY: "test-secret"

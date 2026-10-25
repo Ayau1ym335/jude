@@ -24,8 +24,8 @@ import trimesh
 from app.services.database import get_supabase
 
 
-MESH_STORAGE_BUCKET = "scan-files"          # bucket, куда загружаем обработанные mesh
-PROCESSED_MESH_PREFIX = "processed"   # префикс пути внутри bucket
+MESH_STORAGE_BUCKET = "scan-files"  # bucket, куда загружаем обработанные mesh
+PROCESSED_MESH_PREFIX = "processed"  # префикс пути внутри bucket
 
 
 def save_mesh_as_new_version(
@@ -72,9 +72,7 @@ def save_mesh_as_new_version(
         .execute()
     )
     if version_resp.data is None:
-        raise ValueError(
-            f"Родительская версия с id={parent_version_id} не найдена."
-        )
+        raise ValueError(f"Родительская версия с id={parent_version_id} не найдена.")
     project_id = version_resp.data["project_id"]
 
     # ── Шаг 2: Экспортировать mesh в STL-байты ───────────────────────────────
@@ -118,8 +116,6 @@ def save_mesh_as_new_version(
         ) from exc
 
     if not insert_resp.data:
-        raise RuntimeError(
-            "Supabase вернул пустой ответ при создании записи версии."
-        )
+        raise RuntimeError("Supabase вернул пустой ответ при создании записи версии.")
 
     return storage_path

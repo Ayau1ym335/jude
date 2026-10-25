@@ -28,8 +28,12 @@ class HeadMeasurementCreate(BaseModel):
     slice_z: Optional[float] = Field(None, description="Высота среза (мм).")
     width_mm: Optional[float] = Field(None, description="Ширина головы (мм).")
     length_mm: Optional[float] = Field(None, description="Длина головы (мм).")
-    cephalic_index: Optional[float] = Field(None, description="Цефалический индекс CI (%).")
-    circumference_mm: Optional[float] = Field(None, description="Периметр сечения (мм).")
+    cephalic_index: Optional[float] = Field(
+        None, description="Цефалический индекс CI (%)."
+    )
+    circumference_mm: Optional[float] = Field(
+        None, description="Периметр сечения (мм)."
+    )
 
     # Диагонали
     diag_a_mm: Optional[float] = Field(None, description="Диагональ A (мм).")

@@ -13,8 +13,12 @@ router = APIRouter(prefix="/trim-lines", tags=["trim-lines"])
 
 TABLE = "trim_lines"
 VALID_LINE_TYPES = {
-    "proximal", "ankle", "distal",
-    "ear_cutout", "forehead", "lower_edge",
+    "proximal",
+    "ankle",
+    "distal",
+    "ear_cutout",
+    "forehead",
+    "lower_edge",
 }
 
 

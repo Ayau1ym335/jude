@@ -21,6 +21,7 @@ from app.services.local_smoothing import apply_local_laplacian_smoothing
 
 # ─── Фикстуры ────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="module")
 def icosphere_small():
     """Икосфера ~640 вершин / ~1280 граней — достаточно мала для быстрых тестов."""
@@ -34,16 +35,19 @@ def noisy_sphere():
     Используется для проверки, что сглаживание снижает дисперсию.
     """
     rng = np.random.default_rng(seed=42)
-    mesh = trimesh.creation.icosphere(subdivisions=3)   # ~2500 вершин
+    mesh = trimesh.creation.icosphere(subdivisions=3)  # ~2500 вершин
     # Масштабируем до ~100 мм радиуса (реалистичный размер скана)
     mesh.apply_scale(100.0)
     noisy = mesh.copy()
     noise_sigma_mm = 2.0
-    noisy.vertices = noisy.vertices + rng.normal(0, noise_sigma_mm, size=noisy.vertices.shape)
+    noisy.vertices = noisy.vertices + rng.normal(
+        0, noise_sigma_mm, size=noisy.vertices.shape
+    )
     return noisy
 
 
 # ─── Тесты ───────────────────────────────────────────────────────────────────
+
 
 class TestVerticesActuallyMove:
     """BUG: не было теста, что вершины действительно сдвигаются."""
@@ -51,11 +55,14 @@ class TestVerticesActuallyMove:
     def test_vertices_change_after_smoothing(self, icosphere_small):
         mesh = icosphere_small
         center_idx = 0
-        radius = 0.5   # достаточно большой радиус на единичной сфере
+        radius = 0.5  # достаточно большой радиус на единичной сфере
 
         result = apply_local_laplacian_smoothing(
-            mesh, center_vertex_idx=center_idx, radius=radius,
-            intensity=0.8, iterations=3,
+            mesh,
+            center_vertex_idx=center_idx,
+            radius=radius,
+            intensity=0.8,
+            iterations=3,
         )
 
         diff = np.linalg.norm(result.vertices - mesh.vertices, axis=1)
@@ -72,8 +79,11 @@ class TestVerticesActuallyMove:
         radius = 0.5
 
         result = apply_local_laplacian_smoothing(
-            mesh, center_vertex_idx=center_idx, radius=radius,
-            intensity=1.0, iterations=1,
+            mesh,
+            center_vertex_idx=center_idx,
+            radius=radius,
+            intensity=1.0,
+            iterations=1,
         )
 
         center_diff = np.linalg.norm(
@@ -90,12 +100,15 @@ class TestFalloff:
     def test_far_vertices_unchanged(self, icosphere_small):
         mesh = icosphere_small
         # Очень маленький радиус: затрагиваем только вершины рядом с вершиной 0
-        radius = 0.05   # << диаметр сферы (2.0)
+        radius = 0.05  # << диаметр сферы (2.0)
         center_idx = 0
 
         result = apply_local_laplacian_smoothing(
-            mesh, center_vertex_idx=center_idx, radius=radius,
-            intensity=1.0, iterations=5,
+            mesh,
+            center_vertex_idx=center_idx,
+            radius=radius,
+            intensity=1.0,
+            iterations=5,
         )
 
         diff = np.linalg.norm(result.vertices - mesh.vertices, axis=1)
@@ -103,7 +116,7 @@ class TestFalloff:
         # Вершины дальше radius (в евклидовом смысле) не должны двигаться
         center_pos = mesh.vertices[center_idx]
         euclidean_dists = np.linalg.norm(mesh.vertices - center_pos, axis=1)
-        far_mask = euclidean_dists > radius * 2.0   # двойной запас
+        far_mask = euclidean_dists > radius * 2.0  # двойной запас
 
         far_moved = diff[far_mask].max()
         assert far_moved < 1e-9, (
@@ -126,29 +139,28 @@ class TestSmoothingReducesNoise:
 
         # RMS до сглаживания
         r_before = np.linalg.norm(mesh.vertices, axis=1)
-        rms_before = float(np.sqrt(np.mean((r_before - ideal_radius) ** 2)))
 
         center_idx = 0
         result = apply_local_laplacian_smoothing(
-            mesh, center_vertex_idx=center_idx,
-            radius=30.0,    # ~30 мм — 30% радиуса
+            mesh,
+            center_vertex_idx=center_idx,
+            radius=30.0,  # ~30 мм — 30% радиуса
             intensity=0.7,
             iterations=5,
         )
 
         # RMS после сглаживания (только по вершинам в зоне влияния)
         r_after = np.linalg.norm(result.vertices, axis=1)
-        rms_after = float(np.sqrt(np.mean((r_after - ideal_radius) ** 2)))
 
         # RMS в зоне влияния должен снизиться
         center_pos = mesh.vertices[center_idx]
         zone_mask = np.linalg.norm(mesh.vertices - center_pos, axis=1) <= 30.0
-        rms_zone_before = float(np.sqrt(np.mean(
-            (r_before[zone_mask] - ideal_radius) ** 2
-        )))
-        rms_zone_after = float(np.sqrt(np.mean(
-            (r_after[zone_mask] - ideal_radius) ** 2
-        )))
+        rms_zone_before = float(
+            np.sqrt(np.mean((r_before[zone_mask] - ideal_radius) ** 2))
+        )
+        rms_zone_after = float(
+            np.sqrt(np.mean((r_after[zone_mask] - ideal_radius) ** 2))
+        )
 
         assert rms_zone_after < rms_zone_before, (
             f"Сглаживание не снизило шум в зоне влияния: "
@@ -165,14 +177,15 @@ class TestIntensityZero:
         radius = 0.8
 
         result = apply_local_laplacian_smoothing(
-            mesh, center_vertex_idx=center_idx, radius=radius,
-            intensity=0.0, iterations=10,
+            mesh,
+            center_vertex_idx=center_idx,
+            radius=radius,
+            intensity=0.0,
+            iterations=10,
         )
 
         diff = np.linalg.norm(result.vertices - mesh.vertices, axis=1).max()
-        assert diff < 1e-9, (
-            f"intensity=0 должна не менять mesh, но max diff={diff:.2e}"
-        )
+        assert diff < 1e-9, f"intensity=0 должна не менять mesh, но max diff={diff:.2e}"
 
 
 class TestOriginalNotMutated:
@@ -184,8 +197,11 @@ class TestOriginalNotMutated:
         center_idx = 0
 
         apply_local_laplacian_smoothing(
-            mesh, center_vertex_idx=center_idx, radius=0.5,
-            intensity=1.0, iterations=5,
+            mesh,
+            center_vertex_idx=center_idx,
+            radius=0.5,
+            intensity=1.0,
+            iterations=5,
         )
 
         diff = np.linalg.norm(mesh.vertices - original_verts, axis=1).max()

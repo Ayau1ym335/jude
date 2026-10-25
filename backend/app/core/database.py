@@ -17,6 +17,8 @@ def get_supabase() -> Client:
     global _client
     if _client is None:
         url = SUPABASE_URL or os.environ.get("SUPABASE_URL", "")
-        key = SUPABASE_SERVICE_KEY or os.environ.get("SUPABASE_SERVICE_KEY", os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""))
+        key = SUPABASE_SERVICE_KEY or os.environ.get(
+            "SUPABASE_SERVICE_KEY", os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        )
         _client = create_client(url, key)
     return _client

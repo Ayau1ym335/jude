@@ -27,13 +27,13 @@ SPHERE_RADIUS_MM = 100.0
 # Максимально допустимое расстояние от хита до ближайшей вершины (мм).
 # Зависит от разрешения mesh; при 2500 вершинах / радиусе 100 мм
 # средняя длина ребра ~8 мм → 1 мм запас ниже предела разрешения.
-MAX_SNAP_ERROR_MM = 5.0   # консервативный порог для данного разрешения
+MAX_SNAP_ERROR_MM = 5.0  # консервативный порог для данного разрешения
 
 
 @pytest.fixture(scope="module")
 def sphere_100mm():
     """Икосфера радиуса 100 мм — синтетический mesh для raycast-тестов."""
-    mesh = trimesh.creation.icosphere(subdivisions=3)   # ~2500 вершин
+    mesh = trimesh.creation.icosphere(subdivisions=3)  # ~2500 вершин
     mesh.apply_scale(SPHERE_RADIUS_MM)
     return mesh
 
@@ -58,9 +58,7 @@ class TestRaycastAccuracy:
         assert result_idx == target_idx, (
             f"Ожидался индекс {target_idx}, получен {result_idx}"
         )
-        snap_dist = float(np.linalg.norm(
-            np.array(point) - mesh.vertices[result_idx]
-        ))
+        snap_dist = float(np.linalg.norm(np.array(point) - mesh.vertices[result_idx]))
         assert snap_dist < 1e-9, f"snap distance={snap_dist:.6f} мм, ожидалось 0"
 
     def test_click_near_vertex_snaps_within_threshold(self, sphere_100mm):
@@ -69,7 +67,7 @@ class TestRaycastAccuracy:
         rng = np.random.default_rng(seed=0)
 
         errors = []
-        for target_idx in range(0, len(mesh.vertices), 50):   # каждая 50-я вершина
+        for target_idx in range(0, len(mesh.vertices), 50):  # каждая 50-я вершина
             true_pos = mesh.vertices[target_idx]
             # Симулируем небольшой шум клика (0.5 мм σ)
             noisy_point = (true_pos + rng.normal(0, 0.5, 3)).tolist()
@@ -121,9 +119,9 @@ class TestRaycastAccuracy:
         for target_idx in rng.integers(0, len(mesh.vertices), size=50):
             point = mesh.vertices[int(target_idx)].tolist()
             result_idx = find_nearest_vertex_index(mesh, point)
-            snap_error = float(np.linalg.norm(
-                np.array(point) - mesh.vertices[result_idx]
-            ))
+            snap_error = float(
+                np.linalg.norm(np.array(point) - mesh.vertices[result_idx])
+            )
             errors.append(snap_error)
 
         max_error = max(errors)

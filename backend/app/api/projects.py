@@ -28,8 +28,7 @@ TABLE = "projects"
 @router.get("", response_model=ProjectList)
 def list_projects(
     patient_id: Optional[UUID] = Query(
-        default=None,
-        description="Фильтр: вернуть только проекты указанного пациента."
+        default=None, description="Фильтр: вернуть только проекты указанного пациента."
     ),
     user: CurrentUser = Depends(get_current_user),
 ) -> ProjectList:
@@ -50,9 +49,7 @@ def list_projects(
         # Supabase возвращает join как вложенный объект: row["scans"] = {"validation_status": ...}
         scan_data = row.pop("scans", None)
         scan_status = (
-            scan_data.get("validation_status")
-            if isinstance(scan_data, dict)
-            else None
+            scan_data.get("validation_status") if isinstance(scan_data, dict) else None
         )
         project = ProjectRead(**row)
         project.scan_validation_status = scan_status
@@ -159,11 +156,7 @@ def get_project_versions(project_id: UUID) -> List[ProjectVersionRead]:
 
     # Проверяем, что проект существует.
     project_resp = (
-        db.table(TABLE)
-        .select("id")
-        .eq("id", str(project_id))
-        .maybe_single()
-        .execute()
+        db.table(TABLE).select("id").eq("id", str(project_id)).maybe_single().execute()
     )
     if project_resp.data is None:
         raise HTTPException(
@@ -185,7 +178,11 @@ def get_project_versions(project_id: UUID) -> List[ProjectVersionRead]:
     return [ProjectVersionRead(**row) for row in response.data]
 
 
-@router.post("/{project_id}/versions", response_model=ProjectVersionRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{project_id}/versions",
+    response_model=ProjectVersionRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_initial_project_version(project_id: UUID) -> ProjectVersionRead:
     """Создать первую (базовую) версию проекта, привязав к ней исходный скан."""
     db = get_supabase()
@@ -201,23 +198,19 @@ def create_initial_project_version(project_id: UUID) -> ProjectVersionRead:
     if not proj_resp.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Проект с id={project_id} не найден."
+            detail=f"Проект с id={project_id} не найден.",
         )
 
     scan_id = proj_resp.data["scan_id"]
 
     # 2. Получаем скан (нужен file_url)
     scan_resp = (
-        db.table("scans")
-        .select("file_url")
-        .eq("id", scan_id)
-        .maybe_single()
-        .execute()
+        db.table("scans").select("file_url").eq("id", scan_id).maybe_single().execute()
     )
     if not scan_resp.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Скан с id={scan_id} не найден."
+            detail=f"Скан с id={scan_id} не найден.",
         )
 
     # 3. Вставляем первую версию
@@ -235,7 +228,7 @@ def create_initial_project_version(project_id: UUID) -> ProjectVersionRead:
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Supabase вернул пустой ответ при создании версии."
+            detail="Supabase вернул пустой ответ при создании версии.",
         )
 
     return ProjectVersionRead(**response.data[0])

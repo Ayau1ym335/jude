@@ -16,21 +16,9 @@ import asyncio
 import functools
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 import numpy as np
+from pydantic import BaseModel
 
-# Таймаут геодезического вычисления (секунды).
-# На сканах >200k граней PyGeodesicAlgorithmExact может занять >3 с;
-# без таймаута запрос висит до закрытия TCP-соединения (docs/blockers.md GEO-001).
-GEODESIC_TIMEOUT_SEC: float = 25.0
-
-from app.services.geodesic_curve import (
-    compute_geodesic_curve_through_points,
-    find_nearest_vertex_index,  # используем существующую, не дублируем
-)
-from app.services.mesh_loader import load_mesh_from_url
-from app.services.local_smoothing import apply_local_laplacian_smoothing
-from app.services.versioning import save_mesh_as_new_version
 from app.core.clinical_defaults import (
     ASYMMETRY_THRESHOLD_MM,
     DEFAULT_DIAG_ANGLE_DEG,
@@ -40,7 +28,19 @@ from app.core.clinical_defaults import (
 )
 from app.core.database import get_supabase
 from app.services.asymmetry import compute_asymmetry
+from app.services.geodesic_curve import (
+    compute_geodesic_curve_through_points,
+    find_nearest_vertex_index,
+)
 from app.services.head_metrics import compute_head_metrics
+from app.services.local_smoothing import apply_local_laplacian_smoothing
+from app.services.mesh_loader import load_mesh_from_url
+from app.services.versioning import save_mesh_as_new_version
+
+# Таймаут геодезического вычисления (секунды).
+# На сканах >200k граней PyGeodesicAlgorithmExact может занять >3 с;
+# без таймаута запрос висит до закрытия TCP-соединения (docs/blockers.md GEO-001).
+GEODESIC_TIMEOUT_SEC: float = 25.0
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
 
@@ -111,13 +111,14 @@ async def geodesic_curve_endpoint(request: GeodesicCurveRequest):
 
 # ─── POST /geometry/apply-smoothing ──────────────────────────────────────────
 
+
 class SmoothingRequest(BaseModel):
     scan_id: str
     version_id: str
-    center_point: list[float]   # [x, y, z] — 3D-координаты клика
-    radius: float = 15.0        # радиус зоны (мм). инженерный ориентир, не провалидирован
-    intensity: float = 0.5      # сила коррекции: 0 = нет, 1 = максимум
-    iterations: int = 3         # число итераций Laplacian
+    center_point: list[float]  # [x, y, z] — 3D-координаты клика
+    radius: float = 15.0  # радиус зоны (мм). инженерный ориентир, не провалидирован
+    intensity: float = 0.5  # сила коррекции: 0 = нет, 1 = максимум
+    iterations: int = 3  # число итераций Laplacian
 
 
 @router.post("/apply-smoothing")
@@ -182,9 +183,7 @@ async def apply_smoothing_endpoint(request: SmoothingRequest):
 
     # 4. Сохранить как новую версию
     # Анализ смещения для метаданных ответа
-    diff = np.linalg.norm(
-        smoothed_mesh.vertices - mesh.vertices, axis=1
-    )
+    diff = np.linalg.norm(smoothed_mesh.vertices - mesh.vertices, axis=1)
     vertices_moved = int((diff > 1e-6).sum())
 
     try:
@@ -214,9 +213,12 @@ async def apply_smoothing_endpoint(request: SmoothingRequest):
 
 # ─── POST /geometry/asymmetry-map ────────────────────────────────────────────
 
+
 class AsymmetryRequest(BaseModel):
     scan_id: str
-    threshold_mm: float = ASYMMETRY_THRESHOLD_MM  # порог «клинически значимой» асимметрии
+    threshold_mm: float = (
+        ASYMMETRY_THRESHOLD_MM  # порог «клинически значимой» асимметрии
+    )
 
 
 @router.post("/asymmetry-map")
@@ -264,8 +266,8 @@ async def asymmetry_map_endpoint(request: AsymmetryRequest):
         )
 
     lm = landmarks_resp.data
-    nasion: list[float]       = lm["nasion"]
-    tragus_left: list[float]  = lm["tragus_left"]
+    nasion: list[float] = lm["nasion"]
+    tragus_left: list[float] = lm["tragus_left"]
     tragus_right: list[float] = lm["tragus_right"]
 
     # 2. Загрузить mesh
@@ -289,13 +291,16 @@ async def asymmetry_map_endpoint(request: AsymmetryRequest):
         # build_head_frame бросает ValueError при коллинеарных точках
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Ошибка вычисления асимметрии: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Ошибка вычисления асимметрии: {exc}"
+        )
 
     result["vertex_count"] = len(mesh.vertices)
     return result
 
 
 # ─── POST /geometry/head-metrics ─────────────────────────────────────────────
+
 
 class HeadMetricsRequest(BaseModel):
     scan_id: str
@@ -376,8 +381,8 @@ async def head_metrics_endpoint(request: HeadMetricsRequest):
         )
 
     lm = landmarks_resp.data
-    nasion: list[float]       = lm["nasion"]
-    tragus_left: list[float]  = lm["tragus_left"]
+    nasion: list[float] = lm["nasion"]
+    tragus_left: list[float] = lm["tragus_left"]
     tragus_right: list[float] = lm["tragus_right"]
 
     # 2. Загрузить mesh
@@ -404,9 +409,8 @@ async def head_metrics_endpoint(request: HeadMetricsRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Ошибка вычисления метрик головы: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Ошибка вычисления метрик головы: {exc}"
+        )
 
     return metrics
-
-
-

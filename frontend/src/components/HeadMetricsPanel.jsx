@@ -331,6 +331,7 @@ export default function HeadMetricsPanel({
   // Первоначальный запрос при открытии или изменении hasLandmarks
   useEffect(() => {
     if (hasLandmarks && scanId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void fetchMetrics();
     }
   }, [hasLandmarks, scanId]); // eslint-disable-line react-hooks/exhaustive-deps

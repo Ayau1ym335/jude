@@ -17,8 +17,12 @@ from app.core.auth import CurrentUser, require_role
 
 def test_migrations_enable_rls_on_all_critical_tables():
     """Проверяет, что миграции включают RLS на всех таблицах с данными пациентов."""
-    migrations_dir = Path(__file__).resolve().parent.parent.parent / "supabase" / "migrations"
-    all_sql = "\n".join(f.read_text(encoding="utf-8") for f in migrations_dir.glob("*.sql"))
+    migrations_dir = (
+        Path(__file__).resolve().parent.parent.parent / "supabase" / "migrations"
+    )
+    all_sql = "\n".join(
+        f.read_text(encoding="utf-8") for f in migrations_dir.glob("*.sql")
+    )
 
     required_tables = [
         "patients",
@@ -31,13 +35,19 @@ def test_migrations_enable_rls_on_all_critical_tables():
 
     for table in required_tables:
         expected = f"alter table {table} enable row level security;"
-        assert expected in all_sql, f"Таблица '{table}' должна иметь включённый RLS ({expected})"
+        assert expected in all_sql, (
+            f"Таблица '{table}' должна иметь включённый RLS ({expected})"
+        )
 
 
 def test_migrations_contain_clinic_isolation_policies():
     """Проверяет, что в миграциях созданы политики с изоляцией по clinic_id / auth.uid()."""
-    migrations_dir = Path(__file__).resolve().parent.parent.parent / "supabase" / "migrations"
-    all_sql = "\n".join(f.read_text(encoding="utf-8") for f in migrations_dir.glob("*.sql"))
+    migrations_dir = (
+        Path(__file__).resolve().parent.parent.parent / "supabase" / "migrations"
+    )
+    all_sql = "\n".join(
+        f.read_text(encoding="utf-8") for f in migrations_dir.glob("*.sql")
+    )
 
     assert "patients_select_own_clinic" in all_sql
     assert "scans_select_own_clinic" in all_sql

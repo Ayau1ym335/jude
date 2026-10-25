@@ -45,7 +45,6 @@ from app.services.head_metrics import (
     cephalic_index,
     diagonals,
     cvai,
-    determine_asymmetry_direction,
     compute_head_metrics,
     CI_TENTATIVE_REFERENCE,
     CVAI_TENTATIVE_REFERENCE,
@@ -53,6 +52,7 @@ from app.services.head_metrics import (
 
 
 # ─── Вспомогательные генераторы синтетических голов ──────────────────────────
+
 
 def _make_symmetric_head(
     width: float = 120.0,
@@ -73,8 +73,8 @@ def _make_symmetric_head(
     """
     sphere = trimesh.creation.icosphere(subdivisions=subdivisions, radius=1.0)
     v = sphere.vertices.copy()
-    v[:, 0] *= (width / 2.0)
-    v[:, 1] *= (length / 2.0)
+    v[:, 0] *= width / 2.0
+    v[:, 1] *= length / 2.0
     v[:, 2] = v[:, 2] * height_semi + z_center
     mesh = trimesh.Trimesh(vertices=v, faces=sphere.faces, process=False)
 
@@ -120,26 +120,33 @@ def _make_flattened_head(
 def _rotation_matrix(angle_z_deg: float, angle_x_deg: float) -> np.ndarray:
     az = math.radians(angle_z_deg)
     ax = math.radians(angle_x_deg)
-    Rz = np.array([
-        [math.cos(az), -math.sin(az), 0],
-        [math.sin(az),  math.cos(az), 0],
-        [0,             0,            1],
-    ])
-    Rx = np.array([
-        [1, 0,            0           ],
-        [0, math.cos(ax), -math.sin(ax)],
-        [0, math.sin(ax),  math.cos(ax)],
-    ])
+    Rz = np.array(
+        [
+            [math.cos(az), -math.sin(az), 0],
+            [math.sin(az), math.cos(az), 0],
+            [0, 0, 1],
+        ]
+    )
+    Rx = np.array(
+        [
+            [1, 0, 0],
+            [0, math.cos(ax), -math.sin(ax)],
+            [0, math.sin(ax), math.cos(ax)],
+        ]
+    )
     return Rz @ Rx
 
 
 # ─── Тест 1: head_symmetric ──────────────────────────────────────────────────
 
+
 class TestSymmetricHeadMetrics:
     """Для head_symmetric (длина 150, ширина 120 на уровне экватора)."""
 
     def test_dimensions_cephalic_index_and_cvai(self):
-        mesh, nasion, tl, tr = _make_symmetric_head(width=120.0, length=150.0, z_center=30.0)
+        mesh, nasion, tl, tr = _make_symmetric_head(
+            width=120.0, length=150.0, z_center=30.0
+        )
         metrics = compute_head_metrics(mesh, nasion, tl, tr)
 
         width = metrics["width_mm"]
@@ -149,7 +156,9 @@ class TestSymmetricHeadMetrics:
         cvai_val = metrics["cvai_percent"]
         cva_val = metrics["cva_mm"]
 
-        print(f"\n[head_symmetric] slice_z={slice_h} mm, width={width:.2f} mm, length={length:.2f} mm, CI={ci:.2f}%, CVAI={cvai_val:.2f}%")
+        print(
+            f"\n[head_symmetric] slice_z={slice_h} mm, width={width:.2f} mm, length={length:.2f} mm, CI={ci:.2f}%, CVAI={cvai_val:.2f}%"
+        )
 
         # 1. Уровень максимального периметра найден в районе экватора z=30 мм
         assert abs(slice_h - 30.0) <= 2.0, f"Ожидали z ~ 30 мм, получили {slice_h}"
@@ -164,8 +173,12 @@ class TestSymmetricHeadMetrics:
         assert abs(ci - 80.0) <= 2.0, f"Ожидали CI ~80%, получили {ci}%"
 
         # 5. Для симметричной головы CVAI < 1% (идеально близко к 0)
-        assert cvai_val < 1.0, f"Для симметричной головы CVAI={cvai_val}% должен быть < 1%"
-        assert cva_val < 0.5, f"Для симметричной головы CVA={cva_val} мм должен быть < 0.5 мм"
+        assert cvai_val < 1.0, (
+            f"Для симметричной головы CVAI={cvai_val}% должен быть < 1%"
+        )
+        assert cva_val < 0.5, (
+            f"Для симметричной головы CVA={cva_val} мм должен быть < 0.5 мм"
+        )
 
         # 6. Контур замкнут и не пуст
         contour = np.array(metrics["contour"])
@@ -175,11 +188,14 @@ class TestSymmetricHeadMetrics:
 
 # ─── Тест 2: head_rotated ────────────────────────────────────────────────────
 
+
 class TestRotatedHeadMetrics:
     """head_rotated с метками: те же значения, что у head_symmetric."""
 
     def test_rotated_matches_symmetric(self):
-        mesh_sym, nasion, tl, tr = _make_symmetric_head(width=120.0, length=150.0, z_center=30.0)
+        mesh_sym, nasion, tl, tr = _make_symmetric_head(
+            width=120.0, length=150.0, z_center=30.0
+        )
         res_sym = compute_head_metrics(mesh_sym, nasion, tl, tr)
 
         # Поворот на 30° вокруг Z и 15° вокруг X
@@ -196,8 +212,12 @@ class TestRotatedHeadMetrics:
 
         res_rot = compute_head_metrics(mesh_rot, nasion_r, tl_r, tr_r)
 
-        print(f"\n[head_symmetric] w={res_sym['width_mm']:.2f}, l={res_sym['length_mm']:.2f}, CI={res_sym['cephalic_index']:.2f}%, CVAI={res_sym['cvai_percent']:.2f}%")
-        print(f"[head_rotated]   w={res_rot['width_mm']:.2f}, l={res_rot['length_mm']:.2f}, CI={res_rot['cephalic_index']:.2f}%, CVAI={res_rot['cvai_percent']:.2f}%")
+        print(
+            f"\n[head_symmetric] w={res_sym['width_mm']:.2f}, l={res_sym['length_mm']:.2f}, CI={res_sym['cephalic_index']:.2f}%, CVAI={res_sym['cvai_percent']:.2f}%"
+        )
+        print(
+            f"[head_rotated]   w={res_rot['width_mm']:.2f}, l={res_rot['length_mm']:.2f}, CI={res_rot['cephalic_index']:.2f}%, CVAI={res_rot['cvai_percent']:.2f}%"
+        )
 
         # Разница между исходной и повёрнутой головой должна быть исчезающе мала
         assert abs(res_sym["cephalic_index"] - res_rot["cephalic_index"]) < 0.2
@@ -208,6 +228,7 @@ class TestRotatedHeadMetrics:
 
 
 # ─── Тест 3: Диагонали, монотонность CVAI и сторона асимметрии ───────────────
+
 
 class TestDiagonalsAndAsymmetrySide:
     def test_diagonals_function_structure_and_labels(self):
@@ -226,8 +247,12 @@ class TestDiagonalsAndAsymmetrySide:
 
     def test_cvai_monotonicity_mild_less_than_moderate(self):
         """Проверка строгой монотонности: CVAI(head_mild) < CVAI(head_moderate)."""
-        m_mild, n_mild, tl_mild, tr_mild = _make_flattened_head(flatten_mm=5.0, z_center=30.0)
-        m_mod, n_mod, tl_mod, tr_mod = _make_flattened_head(flatten_mm=12.0, z_center=30.0)
+        m_mild, n_mild, tl_mild, tr_mild = _make_flattened_head(
+            flatten_mm=5.0, z_center=30.0
+        )
+        m_mod, n_mod, tl_mod, tr_mod = _make_flattened_head(
+            flatten_mm=12.0, z_center=30.0
+        )
 
         res_mild = compute_head_metrics(m_mild, n_mild, tl_mild, tr_mild)
         res_mod = compute_head_metrics(m_mod, n_mod, tl_mod, tr_mod)
@@ -237,33 +262,54 @@ class TestDiagonalsAndAsymmetrySide:
         cva_mild = res_mild["cva_mm"]
         cva_mod = res_mod["cva_mm"]
 
-        print(f"\n[CVAI Monotonicity] mild (5mm): CVAI={cvai_mild:.2f}%, CVA={cva_mild:.2f} mm")
-        print(f"[CVAI Monotonicity] mod (12mm): CVAI={cvai_mod:.2f}%, CVA={cva_mod:.2f} mm")
+        print(
+            f"\n[CVAI Monotonicity] mild (5mm): CVAI={cvai_mild:.2f}%, CVA={cva_mild:.2f} mm"
+        )
+        print(
+            f"[CVAI Monotonicity] mod (12mm): CVAI={cvai_mod:.2f}%, CVA={cva_mod:.2f} mm"
+        )
 
         # Строгая монотонность
-        assert cvai_mild < cvai_mod, f"Ожидали cvai_mild ({cvai_mild}) < cvai_mod ({cvai_mod})"
-        assert cva_mild < cva_mod, f"Ожидали cva_mild ({cva_mild}) < cva_mod ({cva_mod})"
+        assert cvai_mild < cvai_mod, (
+            f"Ожидали cvai_mild ({cvai_mild}) < cvai_mod ({cvai_mod})"
+        )
+        assert cva_mild < cva_mod, (
+            f"Ожидали cva_mild ({cva_mild}) < cva_mod ({cva_mod})"
+        )
 
     def test_asymmetry_side_correct_for_right_back_flattening(self):
         """У flatten_right_back более короткая диагональ B (правый затылок)."""
-        m_flat_r, n_r, tl_r, tr_r = _make_flattened_head(flatten_mm=8.0, side="right_back", z_center=30.0)
+        m_flat_r, n_r, tl_r, tr_r = _make_flattened_head(
+            flatten_mm=8.0, side="right_back", z_center=30.0
+        )
         res = compute_head_metrics(m_flat_r, n_r, tl_r, tr_r)
 
-        assert res["shorter_diagonal"] == "B", f"Ожидали shorter=B, получили {res['shorter_diagonal']}"
-        assert res["longer_diagonal"] == "A", f"Ожидали longer=A, получили {res['longer_diagonal']}"
+        assert res["shorter_diagonal"] == "B", (
+            f"Ожидали shorter=B, получили {res['shorter_diagonal']}"
+        )
+        assert res["longer_diagonal"] == "A", (
+            f"Ожидали longer=A, получили {res['longer_diagonal']}"
+        )
         assert "Правая задняя зона уплощена" in res["asymmetry_direction"]
 
     def test_asymmetry_side_correct_for_left_back_flattening(self):
         """У flatten_left_back более короткая диагональ A (левый затылок)."""
-        m_flat_l, n_l, tl_l, tr_l = _make_flattened_head(flatten_mm=8.0, side="left_back", z_center=30.0)
+        m_flat_l, n_l, tl_l, tr_l = _make_flattened_head(
+            flatten_mm=8.0, side="left_back", z_center=30.0
+        )
         res = compute_head_metrics(m_flat_l, n_l, tl_l, tr_l)
 
-        assert res["shorter_diagonal"] == "A", f"Ожидали shorter=A, получили {res['shorter_diagonal']}"
-        assert res["longer_diagonal"] == "B", f"Ожидали longer=B, получили {res['longer_diagonal']}"
+        assert res["shorter_diagonal"] == "A", (
+            f"Ожидали shorter=A, получили {res['shorter_diagonal']}"
+        )
+        assert res["longer_diagonal"] == "B", (
+            f"Ожидали longer=B, получили {res['longer_diagonal']}"
+        )
         assert "Левая задняя зона уплощена" in res["asymmetry_direction"]
 
 
 # ─── Тест 4: Обработка ошибок (пустое сечение, незамкнутый контур) ───────────
+
 
 class TestHeadMetricsErrors:
     def test_empty_section_raises_value_error(self):
@@ -279,8 +325,10 @@ class TestHeadMetricsErrors:
         v = mesh.vertices
         f = mesh.faces
         hole_mask = (
-            (v[f[:, 0], 2] > 28) & (v[f[:, 0], 2] < 32) &
-            (v[f[:, 0], 0] > 0) & (v[f[:, 0], 1] > 0)
+            (v[f[:, 0], 2] > 28)
+            & (v[f[:, 0], 2] < 32)
+            & (v[f[:, 0], 0] > 0)
+            & (v[f[:, 0], 1] > 0)
         )
         mesh_hole = trimesh.Trimesh(vertices=v, faces=f[~hole_mask], process=False)
 
@@ -298,9 +346,12 @@ class TestHeadMetricsErrors:
 
 # ─── Тест 5: Несколько контуров ──────────────────────────────────────────────
 
+
 class TestMultipleContoursSelection:
     def test_selects_longest_contour(self):
-        mesh_main, _, _, _ = _make_symmetric_head(width=120.0, length=150.0, z_center=30.0)
+        mesh_main, _, _, _ = _make_symmetric_head(
+            width=120.0, length=150.0, z_center=30.0
+        )
 
         artifact = trimesh.creation.icosphere(subdivisions=2, radius=10.0)
         artifact.apply_translation([120.0, 0.0, 30.0])
@@ -315,12 +366,15 @@ class TestMultipleContoursSelection:
 
 # ─── Тест 6: Таблица значений для четырёх голов ──────────────────────────────
 
+
 class TestFourHeadsComparisonTable:
     """Шаг 4: расчет и вывод значений для 4 голов в виде таблицы."""
 
     def test_calculate_and_display_table(self):
         # 1. head_symmetric (норма)
-        m_sym, n_sym, tl_sym, tr_sym = _make_symmetric_head(width=120.0, length=150.0, z_center=30.0)
+        m_sym, n_sym, tl_sym, tr_sym = _make_symmetric_head(
+            width=120.0, length=150.0, z_center=30.0
+        )
         r_sym = compute_head_metrics(m_sym, n_sym, tl_sym, tr_sym)
 
         # 2. head_rotated (та же симметричная, повёрнутая в пространстве)
@@ -335,11 +389,15 @@ class TestFourHeadsComparisonTable:
         r_rot = compute_head_metrics(m_rot, n_rot, tl_rot, tr_rot)
 
         # 3. head_mild (лёгкое уплощение 5 мм)
-        m_mild, n_mild, tl_mild, tr_mild = _make_flattened_head(flatten_mm=5.0, width=120.0, length=150.0, z_center=30.0)
+        m_mild, n_mild, tl_mild, tr_mild = _make_flattened_head(
+            flatten_mm=5.0, width=120.0, length=150.0, z_center=30.0
+        )
         r_mild = compute_head_metrics(m_mild, n_mild, tl_mild, tr_mild)
 
         # 4. head_moderate (умеренное уплощение 12 мм)
-        m_mod, n_mod, tl_mod, tr_mod = _make_flattened_head(flatten_mm=12.0, width=120.0, length=150.0, z_center=30.0)
+        m_mod, n_mod, tl_mod, tr_mod = _make_flattened_head(
+            flatten_mm=12.0, width=120.0, length=150.0, z_center=30.0
+        )
         r_mod = compute_head_metrics(m_mod, n_mod, tl_mod, tr_mod)
 
         heads = [
@@ -352,7 +410,9 @@ class TestFourHeadsComparisonTable:
         print("\n" + "=" * 120)
         print("HEAD METRICS & CVAI TABLE FOR 4 SYNTHETIC HEADS")
         print("=" * 120)
-        print(f"{'Head model':<30} | {'z (mm)':<6} | {'W (mm)':<7} | {'L (mm)':<7} | {'CI (%)':<7} | {'Diag A':<7} | {'Diag B':<7} | {'CVA mm':<7} | {'CVAI %':<7} | {'Direction':<22}")
+        print(
+            f"{'Head model':<30} | {'z (mm)':<6} | {'W (mm)':<7} | {'L (mm)':<7} | {'CI (%)':<7} | {'Diag A':<7} | {'Diag B':<7} | {'CVA mm':<7} | {'CVAI %':<7} | {'Direction':<22}"
+        )
         print("-" * 120)
         for name, r in heads:
             print(
@@ -370,6 +430,7 @@ class TestFourHeadsComparisonTable:
 
 # ─── Тест 7: Проверка дисклеймеров клинических порогов ────────────────────────
 
+
 class TestClinicalDisclaimer:
     def test_disclaimers_present_and_no_dogmatic_claims(self):
         assert "подтвердить у клиники" in CI_TENTATIVE_REFERENCE["note"]
@@ -378,11 +439,13 @@ class TestClinicalDisclaimer:
 
 # ─── Тест 8: FastAPI эндпоинт POST /geometry/head-metrics ─────────────────────
 
+
 class TestFastApiEndpoint:
     @pytest.fixture
     def client(self):
         from fastapi.testclient import TestClient
         from app.main import app
+
         return TestClient(app)
 
     def test_missing_landmarks_returns_422(self, client):
@@ -399,14 +462,18 @@ class TestFastApiEndpoint:
         mock_db.table.return_value = mock_table
 
         with patch("app.api.geometry.get_supabase", return_value=mock_db):
-            resp = client.post("/geometry/head-metrics", json={"scan_id": "test-uuid-123"})
+            resp = client.post(
+                "/geometry/head-metrics", json={"scan_id": "test-uuid-123"}
+            )
             assert resp.status_code == 422
             detail = resp.json()["detail"]
             assert "Анатомические ориентиры" in detail
             assert "не найдены" in detail
 
     def test_valid_request_returns_200_with_diagonals_and_cvai(self, client):
-        mesh_sym, nasion, tl, tr = _make_symmetric_head(width=120.0, length=150.0, z_center=30.0)
+        mesh_sym, nasion, tl, tr = _make_symmetric_head(
+            width=120.0, length=150.0, z_center=30.0
+        )
 
         mock_db = MagicMock()
         mock_table = MagicMock()
@@ -424,11 +491,17 @@ class TestFastApiEndpoint:
         mock_table.select.return_value = mock_select
         mock_db.table.return_value = mock_table
 
-        with patch("app.api.geometry.get_supabase", return_value=mock_db), \
-             patch("app.api.geometry.load_mesh_from_url", return_value=mesh_sym):
+        with (
+            patch("app.api.geometry.get_supabase", return_value=mock_db),
+            patch("app.api.geometry.load_mesh_from_url", return_value=mesh_sym),
+        ):
             resp = client.post(
                 "/geometry/head-metrics",
-                json={"scan_id": "test-uuid-valid", "h_slice": 30.0, "diag_angle_deg": 30.0},
+                json={
+                    "scan_id": "test-uuid-valid",
+                    "h_slice": 30.0,
+                    "diag_angle_deg": 30.0,
+                },
             )
             assert resp.status_code == 200, resp.text
             data = resp.json()

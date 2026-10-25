@@ -18,5 +18,7 @@ else:
     load_dotenv()
 
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+SUPABASE_SERVICE_KEY: str = os.getenv(
+    "SUPABASE_SERVICE_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+)
 GEODESIC_TIMEOUT_SEC: float = 25.0

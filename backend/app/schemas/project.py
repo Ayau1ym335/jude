@@ -13,7 +13,9 @@ class ProjectCreate(BaseModel):
     """
 
     patient_id: UUID = Field(..., description="Пациент, для которого создаётся проект.")
-    scan_id: UUID = Field(..., description="Скан, на основе которого ведётся проектирование шлема.")
+    scan_id: UUID = Field(
+        ..., description="Скан, на основе которого ведётся проектирование шлема."
+    )
     product_type: str = Field(
         default="cranial_helmet",
         description="Тип продукта (на платформе — краниальные шлемы 'cranial_helmet').",
@@ -94,4 +96,4 @@ class ProjectVersionRead(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        from_attributes = True

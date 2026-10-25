@@ -2,7 +2,9 @@ from typing import Optional
 import trimesh
 
 
-def create_preview_mesh(original_mesh_path: str, target_faces: int = 50000) -> Optional[trimesh.Trimesh]:
+def create_preview_mesh(
+    original_mesh_path: str, target_faces: int = 50000
+) -> Optional[trimesh.Trimesh]:
     """
     Создаёт упрощённую версию mesh для быстрого превью в viewer.
     Оригинальный высокодетальный файл остаётся нетронутым для операций
@@ -16,7 +18,10 @@ def create_preview_mesh(original_mesh_path: str, target_faces: int = 50000) -> O
             if len(mesh.geometry) == 0:
                 return None
             mesh = trimesh.util.concatenate(
-                tuple(trimesh.Trimesh(vertices=g.vertices, faces=g.faces) for g in mesh.geometry.values())
+                tuple(
+                    trimesh.Trimesh(vertices=g.vertices, faces=g.faces)
+                    for g in mesh.geometry.values()
+                )
             )
 
         original_face_count = len(mesh.faces)

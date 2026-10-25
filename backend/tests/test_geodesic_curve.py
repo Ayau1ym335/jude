@@ -54,7 +54,9 @@ class TestComputeGeodesicCurveThroughPoints:
 
     def test_two_points_returns_valid_path(self, icosphere):
         mesh = icosphere
-        result = compute_geodesic_curve_through_points(mesh, [0, len(mesh.vertices) // 2])
+        result = compute_geodesic_curve_through_points(
+            mesh, [0, len(mesh.vertices) // 2]
+        )
 
         assert isinstance(result, np.ndarray)
         assert result.shape[1] == 3
@@ -69,9 +71,7 @@ class TestFindNearestVertexIndex:
 
         result = find_nearest_vertex_index(mesh, point)
 
-        assert result == target_idx, (
-            f"Ожидался индекс {target_idx}, получен {result}"
-        )
+        assert result == target_idx, f"Ожидался индекс {target_idx}, получен {result}"
 
     def test_returns_int(self, icosphere):
         result = find_nearest_vertex_index(icosphere, [0.0, 0.0, 1.0])

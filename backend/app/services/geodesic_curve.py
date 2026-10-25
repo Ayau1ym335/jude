@@ -3,7 +3,9 @@ import trimesh
 from pygeodesic import geodesic
 
 
-def compute_geodesic_path(mesh: trimesh.Trimesh, source_vertex_idx: int, target_vertex_idx: int) -> np.ndarray:
+def compute_geodesic_path(
+    mesh: trimesh.Trimesh, source_vertex_idx: int, target_vertex_idx: int
+) -> np.ndarray:
     """
     Вычисляет кратчайший путь по поверхности mesh между двумя вершинами.
     Возвращает np.ndarray формы (N, 3).
@@ -13,7 +15,9 @@ def compute_geodesic_path(mesh: trimesh.Trimesh, source_vertex_idx: int, target_
     return path
 
 
-def compute_geodesic_curve_through_points(mesh: trimesh.Trimesh, vertex_indices: list[int]) -> np.ndarray:
+def compute_geodesic_curve_through_points(
+    mesh: trimesh.Trimesh, vertex_indices: list[int]
+) -> np.ndarray:
     """Строит непрерывную кривую по поверхности через последовательность опорных точек."""
     if len(vertex_indices) < 2:
         raise ValueError("Нужно минимум 2 опорные точки для построения кривой")

@@ -21,13 +21,7 @@ SCANS_TABLE = "scans"
 
 def _assert_scan_exists(db, scan_id: str) -> None:
     """Бросает HTTP 404, если скан не найден."""
-    resp = (
-        db.table(SCANS_TABLE)
-        .select("id")
-        .eq("id", scan_id)
-        .maybe_single()
-        .execute()
-    )
+    resp = db.table(SCANS_TABLE).select("id").eq("id", scan_id).maybe_single().execute()
     if resp.data is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -69,11 +63,7 @@ def upsert_landmarks(
     }
 
     try:
-        resp = (
-            db.table(TABLE)
-            .upsert(data, on_conflict="scan_id")
-            .execute()
-        )
+        resp = db.table(TABLE).upsert(data, on_conflict="scan_id").execute()
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

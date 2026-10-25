@@ -36,6 +36,7 @@ from app.services.head_frame import (
 # Вспомогательные функции
 # ---------------------------------------------------------------------------
 
+
 def _make_head_sphere(center=(0, 0, 0), radius=80.0, subdivisions=3) -> trimesh.Trimesh:
     """Создаёт сферу-«голову» с заданным центром."""
     sphere = trimesh.creation.icosphere(subdivisions=subdivisions, radius=radius)
@@ -55,6 +56,7 @@ def _chamfer_distance(pts_a: np.ndarray, pts_b: np.ndarray) -> float:
 
     # Расстояние от каждой точки a до ближайшей в b
     from scipy.spatial import cKDTree
+
     tree_b = cKDTree(b)
     dist_ab, _ = tree_b.query(a)
 
@@ -68,10 +70,11 @@ def _chamfer_distance(pts_a: np.ndarray, pts_b: np.ndarray) -> float:
 # Фикстуры — синтетические головы
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def symmetric_landmarks():
     """Ориентиры симметричной головы в «нейтральной» позе."""
-    nasion = [0.0, 75.0, 0.0]        # кончик носа — вперёд по Y
+    nasion = [0.0, 75.0, 0.0]  # кончик носа — вперёд по Y
     tragus_left = [-60.0, 0.0, 0.0]  # левый козелок — влево по X
     tragus_right = [60.0, 0.0, 0.0]  # правый козелок — вправо по X
     return nasion, tragus_left, tragus_right
@@ -87,17 +90,21 @@ def symmetric_head():
 def rotation_matrix_30deg():
     """Поворот на 30° вокруг оси Z + 15° вокруг оси X."""
     angle_z = math.radians(30)
-    Rz = np.array([
-        [math.cos(angle_z), -math.sin(angle_z), 0],
-        [math.sin(angle_z),  math.cos(angle_z), 0],
-        [0,                  0,                  1],
-    ])
+    Rz = np.array(
+        [
+            [math.cos(angle_z), -math.sin(angle_z), 0],
+            [math.sin(angle_z), math.cos(angle_z), 0],
+            [0, 0, 1],
+        ]
+    )
     angle_x = math.radians(15)
-    Rx = np.array([
-        [1, 0,                0               ],
-        [0, math.cos(angle_x), -math.sin(angle_x)],
-        [0, math.sin(angle_x),  math.cos(angle_x)],
-    ])
+    Rx = np.array(
+        [
+            [1, 0, 0],
+            [0, math.cos(angle_x), -math.sin(angle_x)],
+            [0, math.sin(angle_x), math.cos(angle_x)],
+        ]
+    )
     return Rz @ Rx
 
 
@@ -110,10 +117,9 @@ def rotated_head_and_landmarks(symmetric_landmarks, rotation_matrix_30deg):
     R = rotation_matrix_30deg
     nasion, tl, tr = symmetric_landmarks
     rotated_head = _make_head_sphere(center=(0, 0, 0))
-    rotated_head.apply_transform(np.vstack([
-        np.hstack([R, np.zeros((3, 1))]),
-        [0, 0, 0, 1]
-    ]))
+    rotated_head.apply_transform(
+        np.vstack([np.hstack([R, np.zeros((3, 1))]), [0, 0, 0, 1]])
+    )
     nasion_r = (R @ np.array(nasion)).tolist()
     tl_r = (R @ np.array(tl)).tolist()
     tr_r = (R @ np.array(tr)).tolist()
@@ -123,6 +129,7 @@ def rotated_head_and_landmarks(symmetric_landmarks, rotation_matrix_30deg):
 # ---------------------------------------------------------------------------
 # Тест 1: Симметричная голова → R ≈ единичной матрице
 # ---------------------------------------------------------------------------
+
 
 class TestHeadFrameSymmetric:
     """
@@ -135,7 +142,9 @@ class TestHeadFrameSymmetric:
         origin, R = build_head_frame(nasion, tl, tr)
         expected_origin = np.array([0.0, 0.0, 0.0])
         np.testing.assert_allclose(
-            origin, expected_origin, atol=1e-10,
+            origin,
+            expected_origin,
+            atol=1e-10,
             err_msg="origin должен быть серединой между козелками (0,0,0)",
         )
 
@@ -143,7 +152,9 @@ class TestHeadFrameSymmetric:
         nasion, tl, tr = symmetric_landmarks
         _, R = build_head_frame(nasion, tl, tr)
         np.testing.assert_allclose(
-            R, np.eye(3), atol=1e-10,
+            R,
+            np.eye(3),
+            atol=1e-10,
             err_msg="Для симметричных ориентиров R должна быть близка к I₃",
         )
 
@@ -152,20 +163,24 @@ class TestHeadFrameSymmetric:
         _, R = build_head_frame(nasion, tl, tr)
         # R @ R.T = I
         np.testing.assert_allclose(
-            R @ R.T, np.eye(3), atol=1e-12,
+            R @ R.T,
+            np.eye(3),
+            atol=1e-12,
             err_msg="Строки R должны быть попарно ортогональны и единичной длины",
         )
 
     def test_right_handed_frame(self, symmetric_landmarks):
         nasion, tl, tr = symmetric_landmarks
         _, R = build_head_frame(nasion, tl, tr)
-        assert np.linalg.det(R) == pytest.approx(1.0, abs=1e-12), \
+        assert np.linalg.det(R) == pytest.approx(1.0, abs=1e-12), (
             "Система координат должна быть правой (det R = +1)"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Тест 2: Повёрнутая голова → Chamfer после to_head_frame < 1 мм
 # ---------------------------------------------------------------------------
+
 
 class TestHeadFrameRotated:
     """
@@ -185,7 +200,9 @@ class TestHeadFrameRotated:
         aligned_vertices = to_head_frame(rotated_head.vertices, origin, R)
 
         chamfer = _chamfer_distance(aligned_vertices, symmetric_head.vertices)
-        print(f"\n[TestHeadFrameRotated] Chamfer distance = {chamfer:.4f} мм (порог < 1 мм)")
+        print(
+            f"\n[TestHeadFrameRotated] Chamfer distance = {chamfer:.4f} мм (порог < 1 мм)"
+        )
         assert chamfer < 1.0, (
             f"Chamfer distance {chamfer:.4f} мм превышает порог 1 мм. "
             "to_head_frame не устранил поворот."
@@ -195,7 +212,9 @@ class TestHeadFrameRotated:
         _, nasion_r, tl_r, tr_r = rotated_head_and_landmarks
         _, R = build_head_frame(nasion_r, tl_r, tr_r)
         np.testing.assert_allclose(
-            R @ R.T, np.eye(3), atol=1e-12,
+            R @ R.T,
+            np.eye(3),
+            atol=1e-12,
             err_msg="R должна быть ортонормальной даже после поворота ориентиров",
         )
 
@@ -203,6 +222,7 @@ class TestHeadFrameRotated:
 # ---------------------------------------------------------------------------
 # Тест 3: Ошибки при плохих входных данных
 # ---------------------------------------------------------------------------
+
 
 class TestHeadFrameErrors:
     def test_collinear_points_raise_value_error(self):
@@ -230,29 +250,33 @@ class TestHeadFrameErrors:
 # Тест 4: PCA-автооценка → low_confidence=True + UserWarning
 # ---------------------------------------------------------------------------
 
+
 class TestPCAEstimate:
     def test_returns_low_confidence(self, symmetric_head):
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             result = estimate_landmarks_pca(symmetric_head)
-        assert result["low_confidence"] is True, \
+        assert result["low_confidence"] is True, (
             "PCA-оценка обязана возвращать low_confidence=True"
+        )
 
     def test_emits_user_warning(self, symmetric_head):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             estimate_landmarks_pca(symmetric_head)
         user_warnings = [w for w in caught if issubclass(w.category, UserWarning)]
-        assert len(user_warnings) > 0, \
+        assert len(user_warnings) > 0, (
             "estimate_landmarks_pca должна выбрасывать UserWarning о низкой достоверности"
+        )
 
     def test_warning_mentions_nose_ambiguity(self, symmetric_head):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             estimate_landmarks_pca(symmetric_head)
         msg = " ".join(str(w.message) for w in caught)
-        assert any(word in msg.lower() for word in ["нос", "нозначно", "подтвердите", "pca"]), \
-            "Предупреждение должно упоминать неоднозначность направления"
+        assert any(
+            word in msg.lower() for word in ["нос", "нозначно", "подтвердите", "pca"]
+        ), "Предупреждение должно упоминать неоднозначность направления"
 
     def test_pca_returns_orthonormal_R(self, symmetric_head):
         with warnings.catch_warnings(record=True):
@@ -260,7 +284,9 @@ class TestPCAEstimate:
             result = estimate_landmarks_pca(symmetric_head)
         R = np.array(result["R"])
         np.testing.assert_allclose(
-            R @ R.T, np.eye(3), atol=1e-10,
+            R @ R.T,
+            np.eye(3),
+            atol=1e-10,
             err_msg="PCA-матрица R должна быть ортонормальной",
         )
 
@@ -269,5 +295,6 @@ class TestPCAEstimate:
             warnings.simplefilter("always")
             result = estimate_landmarks_pca(symmetric_head)
         R = np.array(result["R"])
-        assert np.linalg.det(R) == pytest.approx(1.0, abs=1e-10), \
+        assert np.linalg.det(R) == pytest.approx(1.0, abs=1e-10), (
             "PCA-система координат должна быть правой (det = +1)"
+        )

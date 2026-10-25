@@ -30,8 +30,6 @@ from app.core.clinical_defaults import (
     DEFAULT_Z_MAX_MM,
     DEFAULT_STEP_MM,
     DEFAULT_DIAG_ANGLE_DEG,
-    CI_TENTATIVE_REFERENCE,
-    CVAI_TENTATIVE_REFERENCE,
 )
 
 
@@ -128,7 +126,9 @@ def best_slice_height(
             f"Некорректный диапазон поиска высоты: z_min ({z_min}) должен быть меньше z_max ({z_max})."
         )
     if step <= 0:
-        raise ValueError(f"Шаг сканирования step ({step}) должен быть строго положительным.")
+        raise ValueError(
+            f"Шаг сканирования step ({step}) должен быть строго положительным."
+        )
 
     z_levels = np.arange(z_min, z_max + 1e-6, step)
     best_z: float | None = None
@@ -175,9 +175,13 @@ def cephalic_index(contour: np.ndarray) -> tuple[float, float, float]:
     length = float(pts[:, 1].max() - pts[:, 1].min())
 
     if length <= 1e-6:
-        raise ValueError(f"Длина сечения вырождена ({length:.3f} мм). Невозможно рассчитать CI.")
+        raise ValueError(
+            f"Длина сечения вырождена ({length:.3f} мм). Невозможно рассчитать CI."
+        )
     if width <= 1e-6:
-        raise ValueError(f"Ширина сечения вырождена ({width:.3f} мм). Невозможно рассчитать CI.")
+        raise ValueError(
+            f"Ширина сечения вырождена ({width:.3f} мм). Невозможно рассчитать CI."
+        )
 
     ci = float(100.0 * width / length)
     return width, length, ci
@@ -248,7 +252,9 @@ def diagonals(
     """
     pts = np.asarray(contour, dtype=float)
     if len(pts) < 3 or pts.ndim != 2 or pts.shape[1] < 2:
-        raise ValueError("Контур должен быть массивом формы (N, 2) с N >= 3 для вычисления диагоналей.")
+        raise ValueError(
+            "Контур должен быть массивом формы (N, 2) с N >= 3 для вычисления диагоналей."
+        )
 
     poly = Polygon(pts)
     if not poly.is_valid:
@@ -296,7 +302,9 @@ def cvai(diag_a: float, diag_b: float) -> tuple[float, float]:
     """
     shorter = min(float(diag_a), float(diag_b))
     if shorter <= 1e-6:
-        raise ValueError(f"Длина диагонали вырождена ({shorter:.3f} мм), невозможно рассчитать CVAI.")
+        raise ValueError(
+            f"Длина диагонали вырождена ({shorter:.3f} мм), невозможно рассчитать CVAI."
+        )
 
     diff = abs(float(diag_a) - float(diag_b))
     cvai_val = 100.0 * diff / shorter

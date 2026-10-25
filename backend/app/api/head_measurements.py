@@ -59,6 +59,7 @@ def _assert_patient_exists(db, patient_id: str) -> None:
 
 # ─── POST /scans/{scan_id}/measurements ──────────────────────────────────────
 
+
 @router_scans.post(
     "/{scan_id}/measurements",
     response_model=HeadMeasurementRead,
@@ -82,7 +83,9 @@ def create_measurement(
     db = get_supabase()
     scan_row = _get_scan_or_404(db, str(scan_id))
 
-    patient_id = str(payload.patient_id) if payload.patient_id else scan_row.get("patient_id")
+    patient_id = (
+        str(payload.patient_id) if payload.patient_id else scan_row.get("patient_id")
+    )
     if not patient_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -98,8 +101,15 @@ def create_measurement(
 
     # Числовые поля — только если не None
     for field in (
-        "slice_z", "width_mm", "length_mm", "cephalic_index",
-        "circumference_mm", "diag_a_mm", "diag_b_mm", "cva_mm", "cvai_percent",
+        "slice_z",
+        "width_mm",
+        "length_mm",
+        "cephalic_index",
+        "circumference_mm",
+        "diag_a_mm",
+        "diag_b_mm",
+        "cva_mm",
+        "cvai_percent",
     ):
         val = getattr(payload, field)
         if val is not None:
@@ -126,6 +136,7 @@ def create_measurement(
 
 
 # ─── GET /patients/{patient_id}/measurements ─────────────────────────────────
+
 
 @router_patients.get(
     "/{patient_id}/measurements",

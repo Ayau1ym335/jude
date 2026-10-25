@@ -32,9 +32,9 @@ from app.services.head_frame import build_head_frame
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Стандартные ориентиры для симметричной головы-сферы R=80
-NASION      = [0.0,  75.0, 0.0]   # кончик носа
-TRAGUS_LEFT = [-60.0, 0.0, 0.0]   # левый козелок
-TRAGUS_RIGHT = [60.0, 0.0, 0.0]   # правый козелок
+NASION = [0.0, 75.0, 0.0]  # кончик носа
+TRAGUS_LEFT = [-60.0, 0.0, 0.0]  # левый козелок
+TRAGUS_RIGHT = [60.0, 0.0, 0.0]  # правый козелок
 
 
 def _make_sphere(subdivisions: int = 3, radius: float = 80.0) -> trimesh.Trimesh:
@@ -60,16 +60,20 @@ def _make_flattened_sphere(flatten_mm: float, subdivisions: int = 3) -> trimesh.
 def _rotation_matrix(angle_z_deg: float, angle_x_deg: float) -> np.ndarray:
     az = math.radians(angle_z_deg)
     ax = math.radians(angle_x_deg)
-    Rz = np.array([
-        [math.cos(az), -math.sin(az), 0],
-        [math.sin(az),  math.cos(az), 0],
-        [0,             0,            1],
-    ])
-    Rx = np.array([
-        [1, 0,            0           ],
-        [0, math.cos(ax), -math.sin(ax)],
-        [0, math.sin(ax),  math.cos(ax)],
-    ])
+    Rz = np.array(
+        [
+            [math.cos(az), -math.sin(az), 0],
+            [math.sin(az), math.cos(az), 0],
+            [0, 0, 1],
+        ]
+    )
+    Rx = np.array(
+        [
+            [1, 0, 0],
+            [0, math.cos(ax), -math.sin(ax)],
+            [0, math.sin(ax), math.cos(ax)],
+        ]
+    )
     return Rz @ Rx
 
 
@@ -86,6 +90,7 @@ def _apply_rotation_to_landmarks(R, nasion, tl, tr):
 # Тест 1: head_symmetric — mean_abs < 0.3 мм
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestSymmetricHead:
     """Идеально симметричная голова: карта асимметрии должна быть близка к нулю."""
 
@@ -96,7 +101,9 @@ class TestSymmetricHead:
         mean_abs = result["mean_abs"]
         vmin, vmax = result["min"], result["max"]
 
-        print(f"\n[head_symmetric]  min={vmin:.3f}  max={vmax:.3f}  mean_abs={mean_abs:.3f} мм")
+        print(
+            f"\n[head_symmetric]  min={vmin:.3f}  max={vmax:.3f}  mean_abs={mean_abs:.3f} мм"
+        )
 
         assert mean_abs < 0.3, (
             f"Симметричная голова: mean_abs={mean_abs:.3f} мм ≥ 0.3 мм. "
@@ -119,6 +126,7 @@ class TestSymmetricHead:
 # Тест 2: head_mild (flatten=5 мм) — max ≈ 5 мм (допуск 40%)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestMildAsymmetry:
     """Лёгкое уплощение 5 мм: максимум должен быть близок к 5 мм."""
 
@@ -133,8 +141,12 @@ class TestMildAsymmetry:
         # Сохраняем для тестов Moderate
         self.__class__._max_mild = abs(vmin)
 
-        print(f"\n[head_mild]  min={vmin:.3f}  max={vmax:.3f}  mean_abs={mean_abs:.3f} мм")
-        print(f"  flatten={flatten_mm} mm  ->  |min|={abs(vmin):.3f} mm  (expect ~{flatten_mm} mm +-40%)")
+        print(
+            f"\n[head_mild]  min={vmin:.3f}  max={vmax:.3f}  mean_abs={mean_abs:.3f} мм"
+        )
+        print(
+            f"  flatten={flatten_mm} mm  ->  |min|={abs(vmin):.3f} mm  (expect ~{flatten_mm} mm +-40%)"
+        )
 
         # Уплощение сдвигает вершины «внутрь» → они будут с отрицательным знаком
         # Допуск 40%: значение может быть от 3 до 7 мм
@@ -150,6 +162,7 @@ class TestMildAsymmetry:
 # Тест 3: head_moderate (flatten=12 мм) — max > max_mild
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestModerateAsymmetry:
     """Умеренное уплощение 12 мм: максимум должен быть больше, чем у mild."""
 
@@ -160,14 +173,20 @@ class TestModerateAsymmetry:
         mesh_mild = _make_flattened_sphere(flatten_mm=flatten_mild)
         mesh_moderate = _make_flattened_sphere(flatten_mm=flatten_moderate)
 
-        result_mild     = compute_asymmetry(mesh_mild, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
-        result_moderate = compute_asymmetry(mesh_moderate, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
+        result_mild = compute_asymmetry(mesh_mild, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
+        result_moderate = compute_asymmetry(
+            mesh_moderate, NASION, TRAGUS_LEFT, TRAGUS_RIGHT
+        )
 
-        max_mild     = abs(result_mild["min"])
+        max_mild = abs(result_mild["min"])
         max_moderate = abs(result_moderate["min"])
 
-        print(f"\n[head_mild]      |min|={max_mild:.3f}  mean_abs={result_mild['mean_abs']:.3f} мм")
-        print(f"[head_moderate]  |min|={max_moderate:.3f}  mean_abs={result_moderate['mean_abs']:.3f} мм")
+        print(
+            f"\n[head_mild]      |min|={max_mild:.3f}  mean_abs={result_mild['mean_abs']:.3f} мм"
+        )
+        print(
+            f"[head_moderate]  |min|={max_moderate:.3f}  mean_abs={result_moderate['mean_abs']:.3f} мм"
+        )
 
         assert max_moderate > max_mild, (
             f"Ожидали max_moderate ({max_moderate:.3f}) > max_mild ({max_mild:.3f})"
@@ -177,6 +196,7 @@ class TestModerateAsymmetry:
 # ──────────────────────────────────────────────────────────────────────────────
 # Тест 4: head_rotated с правильными метками → результат близок к symmetric
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestRotatedHeadWithCorrectLandmarks:
     """
@@ -218,6 +238,7 @@ class TestRotatedHeadWithCorrectLandmarks:
 # Тест 5: Замер времени на 200 тыс. граней
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestPerformance:
     """
     Замер времени вычисления asymmetry_map на большом меше.
@@ -243,7 +264,9 @@ class TestPerformance:
 
         metrics = asymmetry_metrics(signed_dist)
         print(f"  Время вычисления: {elapsed:.2f} с")
-        print(f"  mean_abs={metrics['mean_abs']:.4f} мм  min={metrics['min']:.3f}  max={metrics['max']:.3f}")
+        print(
+            f"  mean_abs={metrics['mean_abs']:.4f} мм  min={metrics['min']:.3f}  max={metrics['max']:.3f}"
+        )
 
         LIMIT_SECONDS = 5.0
         if elapsed > LIMIT_SECONDS:
@@ -269,22 +292,28 @@ if __name__ == "__main__":
     print("ТЕСТ 1: head_symmetric")
     m = _make_sphere()
     r = compute_asymmetry(m, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
-    print(f"  min={r['min']:.4f}  max={r['max']:.4f}  mean_abs={r['mean_abs']:.4f}  "
-          f"over_threshold={r['percent_over_threshold']:.2f}%")
+    print(
+        f"  min={r['min']:.4f}  max={r['max']:.4f}  mean_abs={r['mean_abs']:.4f}  "
+        f"over_threshold={r['percent_over_threshold']:.2f}%"
+    )
 
     print("=" * 60)
     print("ТЕСТ 2: head_mild (flatten=5 мм)")
     m = _make_flattened_sphere(5.0)
     r = compute_asymmetry(m, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
-    print(f"  min={r['min']:.4f}  max={r['max']:.4f}  mean_abs={r['mean_abs']:.4f}  "
-          f"over_threshold={r['percent_over_threshold']:.2f}%")
+    print(
+        f"  min={r['min']:.4f}  max={r['max']:.4f}  mean_abs={r['mean_abs']:.4f}  "
+        f"over_threshold={r['percent_over_threshold']:.2f}%"
+    )
 
     print("=" * 60)
     print("ТЕСТ 3: head_moderate (flatten=12 мм)")
     m = _make_flattened_sphere(12.0)
     r = compute_asymmetry(m, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
-    print(f"  min={r['min']:.4f}  max={r['max']:.4f}  mean_abs={r['mean_abs']:.4f}  "
-          f"over_threshold={r['percent_over_threshold']:.2f}%")
+    print(
+        f"  min={r['min']:.4f}  max={r['max']:.4f}  mean_abs={r['mean_abs']:.4f}  "
+        f"over_threshold={r['percent_over_threshold']:.2f}%"
+    )
 
     print("=" * 60)
     print("ТЕСТ 4: head_rotated (R z=30°, x=15°) с правильными метками")
@@ -294,10 +323,14 @@ if __name__ == "__main__":
     T = np.eye(4)
     T[:3, :3] = R_mat
     m_rot.apply_transform(T)
-    nr, tl_r, tr_r = _apply_rotation_to_landmarks(R_mat, NASION, TRAGUS_LEFT, TRAGUS_RIGHT)
+    nr, tl_r, tr_r = _apply_rotation_to_landmarks(
+        R_mat, NASION, TRAGUS_LEFT, TRAGUS_RIGHT
+    )
     r_rot = compute_asymmetry(m_rot, nr, tl_r, tr_r)
-    print(f"  min={r_rot['min']:.4f}  max={r_rot['max']:.4f}  mean_abs={r_rot['mean_abs']:.4f}  "
-          f"over_threshold={r_rot['percent_over_threshold']:.2f}%")
+    print(
+        f"  min={r_rot['min']:.4f}  max={r_rot['max']:.4f}  mean_abs={r_rot['mean_abs']:.4f}  "
+        f"over_threshold={r_rot['percent_over_threshold']:.2f}%"
+    )
 
     print("=" * 60)
     print("ТЕСТ 5: ПРОИЗВОДИТЕЛЬНОСТЬ (subdivisions=5, ~163 тыс. граней)")
@@ -309,7 +342,9 @@ if __name__ == "__main__":
     elapsed = time.perf_counter() - t0
     met = asymmetry_metrics(sd)
     print(f"  Время: {elapsed:.2f} с")
-    print(f"  min={met['min']:.4f}  max={met['max']:.4f}  mean_abs={met['mean_abs']:.4f}")
+    print(
+        f"  min={met['min']:.4f}  max={met['max']:.4f}  mean_abs={met['mean_abs']:.4f}"
+    )
     if elapsed > 5:
         print("  ⚠ ПРЕВЫШЕН ЛИМИТ 5 с — требуется оптимизация")
     else:

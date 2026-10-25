@@ -2,15 +2,19 @@
  * Centralized API client for Jude Cranial Helmets platform.
  */
 
+/** Generic JSON response from the API - typed at call site or with eslint-disable where schema is dynamic */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiResponse = Record<string, any>;
+
 const getApiUrl = (): string => {
   return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 };
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
+    const errorBody = await response.json().catch(() => ({})) as ApiResponse;
     const message =
-      (errorBody && (errorBody.detail || errorBody.message)) ||
+      (errorBody && (errorBody["detail"] || errorBody["message"])) ||
       `HTTP error ${response.status}: ${response.statusText}`;
     throw new Error(typeof message === "string" ? message : JSON.stringify(message));
   }
@@ -28,6 +32,117 @@ function authHeaders(token?: string, extraHeaders?: HeadersInit): HeadersInit {
     Object.assign(headers, extraHeaders);
   }
   return headers;
+}
+
+export interface ScanRead {
+  id: string;
+  patient_id: string;
+  file_url: string;
+  file_format?: string | null;
+  validation_status?: string | null;
+  validation_errors?: unknown | null;
+  uploaded_at?: string | null;
+}
+
+export interface LandmarkRead {
+  scan_id: string;
+  nasion?: number[] | null;
+  tragus_left?: number[] | null;
+  tragus_right?: number[] | null;
+  landmarks_data?: Record<string, unknown> | null;
+}
+
+export interface ProjectRead {
+  id: string;
+  patient_id: string;
+  scan_id: string;
+  afo_type?: string | null;
+  product_type?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+}
+
+export interface ProjectVersionRead {
+  id: string;
+  project_id: string;
+  mesh_url: string;
+  created_at?: string | null;
+}
+
+export interface TrimLineRead {
+  id: string;
+  version_id: string;
+  line_type: string;
+  geometry_data: unknown;
+}
+
+export interface HeadMetricsRead {
+  slice_height_mm: number;
+  width_mm: number;
+  length_mm: number;
+  cephalic_index: number;
+  circumference_mm: number;
+  diag_a_mm: number;
+  diag_b_mm: number;
+  diag_a_label: string;
+  diag_b_label: string;
+  diag_angle_deg: number;
+  cva_mm: number;
+  cvai_percent: number;
+  longer_diagonal: string;
+  shorter_diagonal: string;
+  asymmetry_direction: string;
+  diag_points: {
+    center: number[];
+    diag_a: number[][];
+    diag_b: number[][];
+  };
+  contour: number[][];
+}
+
+export interface AsymmetryRead {
+  distances: number[];
+  mesh_url?: string | null;
+}
+
+export interface MeasurementRead {
+  id: string;
+  scan_id: string;
+  patient_id: string;
+  measured_at: string;
+  slice_z?: number | null;
+  width_mm?: number | null;
+  length_mm?: number | null;
+  cephalic_index?: number | null;
+  circumference_mm?: number | null;
+  diag_a_mm?: number | null;
+  diag_b_mm?: number | null;
+  cva_mm?: number | null;
+  cvai_percent?: number | null;
+  params?: Record<string, unknown> | null;
+  algorithm_version?: string | null;
+}
+
+export interface MeasurementListRead {
+  items: MeasurementRead[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface MeasurementCreate {
+  patient_id: string;
+  slice_z?: number;
+  width_mm?: number;
+  length_mm?: number;
+  cephalic_index?: number;
+  circumference_mm?: number;
+  diag_a_mm?: number;
+  diag_b_mm?: number;
+  cva_mm?: number;
+  cvai_percent?: number;
+  params?: Record<string, unknown>;
+  algorithm_version?: string;
 }
 
 export const api = {
@@ -85,7 +200,7 @@ export const api = {
       const res = await fetch(`${getApiUrl()}/scans/${id}`, {
         headers: authHeaders(token),
       });
-      return handleResponse<any>(res);
+      return handleResponse<ScanRead>(res);
     },
 
     async create(token: string, payload: { patient_id: string; file_url: string }) {
@@ -94,14 +209,14 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<ScanRead>(res);
     },
 
     async getLandmarks(token: string, scanId: string) {
       const res = await fetch(`${getApiUrl()}/scans/${scanId}/landmarks`, {
         headers: authHeaders(token),
       });
-      return handleResponse<any>(res);
+      return handleResponse<LandmarkRead>(res);
     },
 
     async saveLandmarks(
@@ -111,7 +226,7 @@ export const api = {
         nasion?: number[];
         tragus_left?: number[];
         tragus_right?: number[];
-        landmarks_data?: Record<string, any>;
+        landmarks_data?: Record<string, unknown>;
       }
     ) {
       const res = await fetch(`${getApiUrl()}/scans/${scanId}/landmarks`, {
@@ -119,7 +234,7 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<LandmarkRead>(res);
     },
   },
 
@@ -128,7 +243,7 @@ export const api = {
       const res = await fetch(`${getApiUrl()}/projects/${id}`, {
         headers: authHeaders(token),
       });
-      return handleResponse<any>(res);
+      return handleResponse<ProjectRead>(res);
     },
 
     async create(
@@ -145,14 +260,14 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<ProjectRead>(res);
     },
 
     async versions(token: string, id: string) {
       const res = await fetch(`${getApiUrl()}/projects/${id}/versions`, {
         headers: authHeaders(token),
       });
-      return handleResponse<any[]>(res);
+      return handleResponse<ProjectVersionRead[]>(res);
     },
   },
 
@@ -173,7 +288,7 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<HeadMetricsRead>(res);
     },
 
     async computeAsymmetry(
@@ -185,7 +300,7 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<AsymmetryRead>(res);
     },
 
     async applySmoothing(
@@ -203,7 +318,7 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<ScanRead>(res);
     },
 
     async computeGeodesicCurve(
@@ -215,7 +330,7 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<{ curve_points: number[][] }>(res);
     },
   },
 
@@ -233,18 +348,18 @@ export const api = {
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<TrimLineRead>(res);
     },
   },
 
   measurements: {
-    async save(token: string | undefined, scanId: string, payload: any) {
+    async save(token: string | undefined, scanId: string, payload: MeasurementCreate) {
       const res = await fetch(`${getApiUrl()}/scans/${scanId}/measurements`, {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<any>(res);
+      return handleResponse<MeasurementRead>(res);
     },
 
     async listForPatient(
@@ -257,7 +372,7 @@ export const api = {
         `${getApiUrl()}/patients/${patientId}/measurements?limit=${limit}&offset=${offset}`,
         { headers: authHeaders(token) }
       );
-      return handleResponse<any>(res);
+      return handleResponse<MeasurementListRead>(res);
     },
   },
 };

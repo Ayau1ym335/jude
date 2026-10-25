@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
 from app.api.projects import create_project
 from app.schemas.project import ProjectCreate, ProjectRead
 
@@ -60,7 +59,9 @@ def test_create_project_inserts_afo_type_to_db():
     """Роутер create_project должен вставлять afo_type (соответствует initial_schem.sql)."""
     pid = uuid4()
     sid = uuid4()
-    payload = ProjectCreate(patient_id=pid, scan_id=sid, helmet_type="cranial_remolding")
+    payload = ProjectCreate(
+        patient_id=pid, scan_id=sid, helmet_type="cranial_remolding"
+    )
 
     mock_db = MagicMock()
     # Mock scans query
@@ -102,6 +103,10 @@ def test_create_project_inserts_afo_type_to_db():
 
         # Проверяем, с какими данными был вызван insert
         call_args = projects_table.insert.call_args[0][0]
-        assert "afo_type" in call_args, "Вставляемый словарь должен содержать ключ 'afo_type'"
-        assert "helmet_type" not in call_args, "Вставляемый словарь НЕ должен содержать 'helmet_type' (нет такой колонки в БД)"
+        assert "afo_type" in call_args, (
+            "Вставляемый словарь должен содержать ключ 'afo_type'"
+        )
+        assert "helmet_type" not in call_args, (
+            "Вставляемый словарь НЕ должен содержать 'helmet_type' (нет такой колонки в БД)"
+        )
         assert call_args["afo_type"] == "cranial_remolding"

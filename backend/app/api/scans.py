@@ -70,11 +70,14 @@ def create_scan(
         )
 
     scan_data = response.data[0]
-    
+
     # Шаг 1-5: Запуск валидации в фоне, чтобы не блокировать ответ
-    background_tasks.add_task(process_scan_validation, str(scan_data["id"]), scan_data["file_url"])
+    background_tasks.add_task(
+        process_scan_validation, str(scan_data["id"]), scan_data["file_url"]
+    )
 
     return ScanRead(**scan_data)
+
 
 def process_scan_validation(scan_id: str, file_url: str):
     """
@@ -86,23 +89,20 @@ def process_scan_validation(scan_id: str, file_url: str):
     tmp_path = None
     preview_mesh_url = None
     preview_face_count = None
-    
+
     try:
         # Шаг 2: Скачать файл во временный файл
         tmp_path = download_scan_file_to_tempfile(file_url, db=db)
-            
+
         # Шаг 3: Запустить validate_mesh()
         result = validate_mesh(tmp_path)
-        
+
         # Шаг 4: Получить valid=True/False
         if not result["valid"]:
             validation_status = "invalid"
             for err in result["errors"]:
                 msg = VALIDATION_MESSAGES.get(err, f"Неизвестная ошибка: {err}")
-                validation_errors.append({
-                    "type": err, 
-                    "message": msg
-                })
+                validation_errors.append({"type": err, "message": msg})
         else:
             # Шаг 4.1: Генерация превью (только для валидных сканов)
             try:
@@ -113,7 +113,9 @@ def process_scan_validation(scan_id: str, file_url: str):
                     preview_file_name = f"preview_{scan_id}{preview_ext}"
                     preview_path = f"previews/{preview_file_name}"
 
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=preview_ext) as p_tmp:
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=preview_ext
+                    ) as p_tmp:
                         p_tmp_name = p_tmp.name
                     # Файл закрыт — теперь экспортируем и читаем без PermissionError на Windows
                     try:
@@ -131,27 +133,26 @@ def process_scan_validation(scan_id: str, file_url: str):
 
             except Exception as e:
                 print(f"Ошибка при сохранении превью скана {scan_id}: {e}")
-                
+
     except Exception as e:
         validation_status = "invalid"
         msg = VALIDATION_MESSAGES.get("PROCESSING_ERROR", "Системная ошибка обработки.")
-        validation_errors.append({
-            "type": "PROCESSING_ERROR",
-            "message": f"{msg} Детали: {str(e)}"
-        })
+        validation_errors.append(
+            {"type": "PROCESSING_ERROR", "message": f"{msg} Детали: {str(e)}"}
+        )
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
-            
+
     # Шаг 5: Обновить таблицу scans
     update_data = {
         "validation_status": validation_status,
-        "validation_errors": validation_errors if validation_errors else None
+        "validation_errors": validation_errors if validation_errors else None,
     }
     if preview_mesh_url:
         update_data["preview_mesh_url"] = preview_mesh_url
         update_data["preview_face_count"] = preview_face_count
-    
+
     try:
         db.table(TABLE).update(update_data).eq("id", scan_id).execute()
     except Exception as e:
@@ -165,11 +166,7 @@ def get_scan(scan_id: UUID) -> ScanRead:
 
     try:
         response = (
-            db.table(TABLE)
-            .select("*")
-            .eq("id", str(scan_id))
-            .maybe_single()
-            .execute()
+            db.table(TABLE).select("*").eq("id", str(scan_id)).maybe_single().execute()
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))

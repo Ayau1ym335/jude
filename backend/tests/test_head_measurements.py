@@ -14,7 +14,6 @@
 
 import sys
 import os
-from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -146,6 +145,7 @@ def _make_mock_db_for_list(rows: list[dict], count: int) -> MagicMock:
 
 # ─── Тест 1: POST сохраняет визит и возвращает HeadMeasurementRead ───────────
 
+
 class TestCreateMeasurement:
     @pytest.fixture
     def client(self):
@@ -234,7 +234,7 @@ class TestCreateMeasurement:
 
         with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.post(
-                f"/scans/00000000-dead-beef-0000-000000000000/measurements",
+                "/scans/00000000-dead-beef-0000-000000000000/measurements",
                 json={"patient_id": PATIENT_ID},
                 headers={"Authorization": "Bearer test-token"},
             )
@@ -257,6 +257,7 @@ class TestCreateMeasurement:
 
 
 # ─── Тест 2: GET /patients/{id}/measurements ──────────────────────────────────
+
 
 class TestListMeasurements:
     @pytest.fixture
@@ -321,8 +322,8 @@ class TestListMeasurements:
         # Сортируем по measured_at ASC (хронологически) для проверки тренда
         sorted_items = sorted(items, key=lambda x: x["measured_at"])
 
-        cvai_visit1 = sorted_items[0]["cvai_percent"]   # moderate ~6.83%
-        cvai_visit2 = sorted_items[1]["cvai_percent"]   # mild     ~2.60%
+        cvai_visit1 = sorted_items[0]["cvai_percent"]  # moderate ~6.83%
+        cvai_visit2 = sorted_items[1]["cvai_percent"]  # mild     ~2.60%
 
         assert cvai_visit2 < cvai_visit1, (
             f"Ожидали снижения CVAI: CVAI(визит2={cvai_visit2:.2f}%) < "
@@ -342,7 +343,7 @@ class TestListMeasurements:
 
         with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.get(
-                f"/patients/00000000-dead-beef-0000-000000000000/measurements",
+                "/patients/00000000-dead-beef-0000-000000000000/measurements",
                 headers={"Authorization": "Bearer test-token"},
             )
 

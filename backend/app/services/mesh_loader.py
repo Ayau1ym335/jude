@@ -47,7 +47,9 @@ def load_mesh(filepath: Union[str, Path]) -> trimesh.Trimesh:
     try:
         mesh = trimesh.load(str(path), force="mesh")
         if not isinstance(mesh, trimesh.Trimesh):
-            raise ValueError(f"Не удалось загрузить действительный объект Trimesh из {path}")
+            raise ValueError(
+                f"Не удалось загрузить действительный объект Trimesh из {path}"
+            )
         return mesh
     except Exception as e:
         raise ValueError(f"Ошибка при загрузке файла {path}: {e}")
