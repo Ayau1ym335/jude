@@ -1,6 +1,7 @@
 import React from "react";
 import type { ModelViewerHandle } from "@/components/ModelViewer";
-import RawHeadMetricsPanel from "../src/components/HeadMetricsPanel";
+import type { MeasurementRead } from "@/lib/api";
+import RawHeadMetricsPanel from "@/src/components/HeadMetricsPanel";
 
 export interface HeadMetricsResponse {
   slice_height_mm: number;
@@ -36,9 +37,9 @@ export interface HeadMetricsPanelProps {
   embedded?: boolean;
   className?: string;
   onMetricsLoaded?: ((data: HeadMetricsResponse) => void) | null;
-  onMeasurementSaved?: ((data: any) => void) | null;
+  onMeasurementSaved?: ((data: MeasurementRead) => void) | null;
 }
 
 export const HeadMetricsPanel: React.FC<HeadMetricsPanelProps> = RawHeadMetricsPanel as unknown as React.FC<HeadMetricsPanelProps>;
 export default HeadMetricsPanel;
-export * from "../src/components/HeadMetricsPanel";
+export * from "@/src/components/HeadMetricsPanel";

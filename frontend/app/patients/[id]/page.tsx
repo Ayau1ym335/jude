@@ -25,7 +25,9 @@ interface Project {
   id: string;
   patient_id: string;
   scan_id: string;
-  afo_type: string;
+  afo_type?: string;
+  helmet_type?: string;
+  product_type?: string;
   status: "in_progress" | "exported" | "manufactured";
   scan_validation_status: "pending" | "valid" | "invalid" | null;
   created_at: string;
@@ -175,7 +177,7 @@ export default function PatientDetailPage() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-jude-ink">
-                          {project.afo_type ?? "AFO"}
+                          {project.helmet_type ?? project.product_type ?? project.afo_type ?? "Краниальный шлем"}
                         </span>
                         <div className="flex items-center gap-2">
                           <ScanStatusIndicator

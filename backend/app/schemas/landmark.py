@@ -23,9 +23,13 @@ def _validate_finite_coords(v: list[float]) -> list[float]:
         raise ValueError("Координата должна содержать ровно 3 элемента [x, y, z].")
     for i, c in enumerate(v):
         if not isinstance(c, (int, float)):
-            raise ValueError(f"Координата [{i}] должна быть числом, получено: {type(c).__name__}.")
+            raise ValueError(
+                f"Координата [{i}] должна быть числом, получено: {type(c).__name__}."
+            )
         if not math.isfinite(c):
-            raise ValueError(f"Координата [{i}] должна быть конечным числом, получено: {c}.")
+            raise ValueError(
+                f"Координата [{i}] должна быть конечным числом, получено: {c}."
+            )
     return [float(c) for c in v]
 
 

@@ -27,7 +27,9 @@ class PatientBase(BaseModel):
 class PatientCreate(PatientBase):
     """Тело запроса на создание пациента (POST /patients)."""
 
-    clinic_id: Optional[UUID] = Field(default=None, description="Клиника, к которой относится пациент.")
+    clinic_id: Optional[UUID] = Field(
+        default=None, description="Клиника, к которой относится пациент."
+    )
 
 
 class PatientRead(PatientBase):

@@ -3,8 +3,8 @@ import { michroma, roboto, robotoMono } from "@/lib/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "JUDE — платформа ортезирования",
-  description: "Управление пациентами, сканами и проектами AFO",
+  title: "JUDE — платформа краниального ортезирования",
+  description: "Управление пациентами, сканами и проектами краниальных шлемов",
   icons: {
     icon: "/jude-logo.png",
     apple: "/jude-logo.png",

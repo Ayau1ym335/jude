@@ -26,6 +26,9 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+import httpx
+import trimesh
+
 # Добавляем корень backend в sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -45,9 +48,6 @@ if not SUPABASE_URL or not SERVICE_KEY:
     print("❌ SUPABASE_URL или SUPABASE_SERVICE_KEY не заданы в .env.local")
     sys.exit(1)
 
-import trimesh
-import httpx
-
 # ─── Конфигурация ────────────────────────────────────────────────────────────
 
 BUCKET = "scan-files"
@@ -56,6 +56,7 @@ CLINIC_ID = "00000000-0000-0000-0000-000000000001"
 PATIENT_IDENTIFIER = "TEST-E2E-001"
 
 # ─── Supabase HTTP-клиент (service key, полный доступ) ───────────────────────
+
 
 def sb_headers() -> dict:
     return {
@@ -87,7 +88,9 @@ def sb_patch(path: str, data: dict, params: dict | None = None) -> dict | list:
     return r.json()
 
 
-def storage_upload(path: str, file_bytes: bytes, content_type: str = "model/stl") -> str:
+def storage_upload(
+    path: str, file_bytes: bytes, content_type: str = "model/stl"
+) -> str:
     """Загружает файл в Supabase Storage, возвращает путь."""
     url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{path}"
     headers = {
@@ -103,21 +106,24 @@ def storage_upload(path: str, file_bytes: bytes, content_type: str = "model/stl"
     body = r.json()
     # Supabase возвращает {"Key": "scan-files/<path>"}
     key = body.get("Key", f"{BUCKET}/{path}")
-    stored = key[len(BUCKET) + 1:] if key.startswith(f"{BUCKET}/") else path
+    stored = key[len(BUCKET) + 1 :] if key.startswith(f"{BUCKET}/") else path
     return stored
 
 
 # ─── Шаги ────────────────────────────────────────────────────────────────────
 
+
 def step1_generate_stl() -> bytes:
-    print("📐 Генерирую тестовый STL (icosphere subdivisions=3)...")
+    print("📐 Генерирую тестовый STL головы (icosphere subdivisions=3)...")
     mesh = trimesh.creation.icosphere(subdivisions=3)
-    # Масштабируем до размеров стопы (~250 мм × 90 мм), чтобы bounds были реалистичны
-    mesh.apply_scale(125.0)
+    # Масштабируем до размеров головы младенца (~140 мм), чтобы bounds были реалистичны
+    mesh.apply_scale(70.0)
     buf = io.BytesIO()
     mesh.export(buf, file_type="stl")
     data = buf.getvalue()
-    print(f"   Сгенерировано {len(mesh.vertices)} вершин, {len(mesh.faces)} граней, {len(data) // 1024} КБ")
+    print(
+        f"   Сгенерировано {len(mesh.vertices)} вершин, {len(mesh.faces)} граней, {len(data) // 1024} КБ"
+    )
     return data
 
 
@@ -133,7 +139,7 @@ def step2_ensure_clinic() -> str:
         pass
     # Пробуем вставить
     try:
-        result = sb_post("clinics", {"id": CLINIC_ID, "name": "Test Clinic (E2E)"})
+        sb_post("clinics", {"id": CLINIC_ID, "name": "Test Clinic (E2E)"})
         print("   Клиника создана.")
         return CLINIC_ID
     except Exception as e:
@@ -211,14 +217,15 @@ def step5_create_scan(patient_id: str, file_url: str) -> str:
 
 def step6_create_project(patient_id: str, scan_id: str) -> str:
     """Создаёт проект, привязанный к скану."""
-    print("📁 Создаю проект...")
+    print("📁 Создаю проект краниального шлема...")
     result = sb_post(
         "projects",
         {
             "patient_id": patient_id,
             "scan_id": scan_id,
-            "afo_type": "posterior_leaf_spring",
-            "status": "design",
+            "product_type": "cranial_helmet",
+            "afo_type": "cranial_remolding",
+            "status": "in_progress",
         },
     )
     project_id = result[0]["id"]
@@ -227,6 +234,7 @@ def step6_create_project(patient_id: str, scan_id: str) -> str:
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
+
 
 def main():
     print("=" * 60)

@@ -1,5 +1,5 @@
 import React from "react";
-import RawHeadSectionView from "../src/components/HeadSectionView";
+import RawHeadSectionView from "@/src/components/HeadSectionView";
 
 export interface HeadSectionViewProps {
   contour?: number[][];
@@ -25,4 +25,4 @@ export interface HeadSectionViewProps {
 
 export const HeadSectionView: React.FC<HeadSectionViewProps> = RawHeadSectionView as unknown as React.FC<HeadSectionViewProps>;
 export default HeadSectionView;
-export * from "../src/components/HeadSectionView";
+export * from "@/src/components/HeadSectionView";

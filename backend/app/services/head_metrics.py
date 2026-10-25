@@ -24,34 +24,16 @@ import trimesh
 
 from app.services.head_frame import build_head_frame, to_head_frame
 
-# ─── Клинические константы (параметры в конфиг, подтвердить у клиники) ─────────
-# Диапазон поиска максимальной окружности над плоскостью козелков (мм).
-# У младенцев 0–12 мес. уровень наибольшей лобно-затылочной окружности
-# обычно находится на 20–50 мм выше линии козелков ушей.
-DEFAULT_Z_MIN_MM = 20.0
-DEFAULT_Z_MAX_MM = 60.0
-DEFAULT_STEP_MM = 2.0
-
-# Угол наклона диагоналей от сагиттальной оси Y (вперёд).
-# По клиническим протоколам (Loveday et al., CHOA) обычно используют 30° или 40°.
-DEFAULT_DIAG_ANGLE_DEG = 30.0
-
-# ─── Ориентировочные диапазоны для справки (подтвердить у клиники до исп.) ─────
-# ВНИМАНИЕ: значения ниже приведены исключительно как ориентировочные данные
-# из открытой научной литературы. Они НЕ являются утверждённой нормой или патологией
-# и не могут использоваться для постановки диагноза без утверждения клинической группой!
-CI_TENTATIVE_REFERENCE = {
-    "tentative_dolicho_max": 76.0,  # % (ориентировочно, подтвердить у клиники)
-    "tentative_brachy_min": 83.0,   # % (ориентировочно, подтвердить у клиники)
-    "note": "Ориентировочные пороги по литературе, подтвердить у клиники до использования",
-}
-
-CVAI_TENTATIVE_REFERENCE = {
-    "tentative_mild_pct": 3.5,      # % (ориентировочно, подтвердить у клиники)
-    "tentative_moderate_pct": 7.0,  # % (ориентировочно, подтвердить у клиники)
-    "tentative_severe_pct": 12.0,   # % (ориентировочно, подтвердить у клиники)
-    "note": "Ориентировочные пороги CVAI по литературе, подтвердить у клиники до использования",
-}
+# ─── Клинические константы из централизованного модуля ─────────────────────────
+from app.core.clinical_defaults import (
+    DEFAULT_Z_MIN_MM,
+    DEFAULT_Z_MAX_MM,
+    DEFAULT_STEP_MM,
+    DEFAULT_DIAG_ANGLE_DEG,
+    # Re-exported for backward compatibility (tests import from this module)
+    CI_TENTATIVE_REFERENCE,
+    CVAI_TENTATIVE_REFERENCE,
+)
 
 
 def contour_perimeter(contour: np.ndarray) -> float:
@@ -147,7 +129,9 @@ def best_slice_height(
             f"Некорректный диапазон поиска высоты: z_min ({z_min}) должен быть меньше z_max ({z_max})."
         )
     if step <= 0:
-        raise ValueError(f"Шаг сканирования step ({step}) должен быть строго положительным.")
+        raise ValueError(
+            f"Шаг сканирования step ({step}) должен быть строго положительным."
+        )
 
     z_levels = np.arange(z_min, z_max + 1e-6, step)
     best_z: float | None = None
@@ -194,9 +178,13 @@ def cephalic_index(contour: np.ndarray) -> tuple[float, float, float]:
     length = float(pts[:, 1].max() - pts[:, 1].min())
 
     if length <= 1e-6:
-        raise ValueError(f"Длина сечения вырождена ({length:.3f} мм). Невозможно рассчитать CI.")
+        raise ValueError(
+            f"Длина сечения вырождена ({length:.3f} мм). Невозможно рассчитать CI."
+        )
     if width <= 1e-6:
-        raise ValueError(f"Ширина сечения вырождена ({width:.3f} мм). Невозможно рассчитать CI.")
+        raise ValueError(
+            f"Ширина сечения вырождена ({width:.3f} мм). Невозможно рассчитать CI."
+        )
 
     ci = float(100.0 * width / length)
     return width, length, ci
@@ -267,7 +255,9 @@ def diagonals(
     """
     pts = np.asarray(contour, dtype=float)
     if len(pts) < 3 or pts.ndim != 2 or pts.shape[1] < 2:
-        raise ValueError("Контур должен быть массивом формы (N, 2) с N >= 3 для вычисления диагоналей.")
+        raise ValueError(
+            "Контур должен быть массивом формы (N, 2) с N >= 3 для вычисления диагоналей."
+        )
 
     poly = Polygon(pts)
     if not poly.is_valid:
@@ -315,7 +305,9 @@ def cvai(diag_a: float, diag_b: float) -> tuple[float, float]:
     """
     shorter = min(float(diag_a), float(diag_b))
     if shorter <= 1e-6:
-        raise ValueError(f"Длина диагонали вырождена ({shorter:.3f} мм), невозможно рассчитать CVAI.")
+        raise ValueError(
+            f"Длина диагонали вырождена ({shorter:.3f} мм), невозможно рассчитать CVAI."
+        )
 
     diff = abs(float(diag_a) - float(diag_b))
     cvai_val = 100.0 * diff / shorter

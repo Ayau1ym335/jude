@@ -29,12 +29,13 @@ import numpy as np
 import trimesh
 from pygeodesic import geodesic
 
-logger = logging.getLogger(__name__)
+from app.core.clinical_defaults import (
+    DEFAULT_SMOOTHING_INTENSITY,
+    DEFAULT_SMOOTHING_ITERATIONS,
+    DEFAULT_SMOOTHING_RADIUS_MM,
+)
 
-# Стартовые инженерные ориентиры сглаживания
-DEFAULT_SMOOTHING_RADIUS_MM: float = 15.0
-DEFAULT_SMOOTHING_INTENSITY: float = 0.5
-DEFAULT_SMOOTHING_ITERATIONS: int = 3
+logger = logging.getLogger(__name__)
 
 
 def compute_falloff_weights(
@@ -154,7 +155,7 @@ def compute_falloff_weights_optimized(
     # Шаг 2: Переиндексация граней — строим submesh.
     # Отбираем треугольники, где все 3 вершины — кандидаты.
     face_mask = np.all(candidate_mask[mesh.faces], axis=1)
-    sub_faces_old = mesh.faces[face_mask]   # со старыми индексами
+    sub_faces_old = mesh.faces[face_mask]  # со старыми индексами
 
     if len(sub_faces_old) == 0:
         # Кандидаты есть, но нет целых треугольников — фолбэк: вес = 1 для центра
@@ -165,12 +166,12 @@ def compute_falloff_weights_optimized(
     # PyGeodesicAlgorithmExact требует, чтобы все вершины [0..N-1] встречались
     # хотя бы в одной грани («numbered sequentially from 0»). Если брать все
     # candidate_indices — вершины без граней нарушают это требование.
-    used_old_indices = np.unique(sub_faces_old)          # отсортированные уникальные
+    used_old_indices = np.unique(sub_faces_old)  # отсортированные уникальные
     old_to_new = np.full(len(mesh.vertices), -1, dtype=np.int64)
     old_to_new[used_old_indices] = np.arange(len(used_old_indices), dtype=np.int64)
 
-    sub_faces_new = old_to_new[sub_faces_old]            # индексы 0..len(used)-1
-    sub_vertices = mesh.vertices[used_old_indices]        # только используемые
+    sub_faces_new = old_to_new[sub_faces_old]  # индексы 0..len(used)-1
+    sub_vertices = mesh.vertices[used_old_indices]  # только используемые
 
     # Шаг 3: PyGeodesicAlgorithmExact на малом submesh.
     # Если center_vertex_idx не попал в used_old_indices (крайний случай — центр
@@ -200,7 +201,9 @@ def compute_falloff_weights_optimized(
             "compute_falloff_weights_optimized: pygeodesic вернул None "
             "(center_sub_idx=%d, submesh verts=%d, faces=%d). "
             "Используем евклидовы расстояния как fallback.",
-            center_sub_idx, len(sub_vertices_c), len(sub_faces_c),
+            center_sub_idx,
+            len(sub_vertices_c),
+            len(sub_faces_c),
         )
         center_sub_pt = sub_vertices_c[center_sub_idx]
         distances_sub = np.linalg.norm(sub_vertices_c - center_sub_pt, axis=1)
@@ -259,10 +262,9 @@ def apply_local_laplacian_smoothing(
                 continue
             neighbor_avg = smoothed_mesh.vertices[neighbors].mean(axis=0)
             local_weight = weights[vertex_idx] * intensity
-            new_vertices[vertex_idx] = (
-                (1 - local_weight) * smoothed_mesh.vertices[vertex_idx]
-                + local_weight * neighbor_avg
-            )
+            new_vertices[vertex_idx] = (1 - local_weight) * smoothed_mesh.vertices[
+                vertex_idx
+            ] + local_weight * neighbor_avg
         smoothed_mesh.vertices = new_vertices
 
     return smoothed_mesh

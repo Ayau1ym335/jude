@@ -26,11 +26,8 @@ from numpy.typing import NDArray
 
 from app.services.head_frame import build_head_frame, to_head_frame
 
-# ─── Клинический порог (уточнить у клиники) ──────────────────────────────────
-# 3 мм — инженерный ориентир для краниальных ортезов.
-# Для расчёта CVA/CVAI используется другой подход; этот порог — сугубо
-# для цветовой карты на экране. Подтвердить у клиники перед релизом.
-ASYMMETRY_THRESHOLD_MM: float = 3.0
+# ─── Клинический порог из централизованного модуля ───────────────────────────
+from app.core.clinical_defaults import ASYMMETRY_THRESHOLD_MM
 
 
 def asymmetry_map(
