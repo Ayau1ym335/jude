@@ -31,15 +31,16 @@ from app.services.geodesic_curve import (
 from app.services.mesh_loader import load_mesh_from_url
 from app.services.local_smoothing import apply_local_laplacian_smoothing
 from app.services.versioning import save_mesh_as_new_version
-from app.services.asymmetry import compute_asymmetry, ASYMMETRY_THRESHOLD_MM
-from app.services.head_metrics import (
-    compute_head_metrics,
-    DEFAULT_Z_MIN_MM,
-    DEFAULT_Z_MAX_MM,
-    DEFAULT_STEP_MM,
+from app.core.clinical_defaults import (
+    ASYMMETRY_THRESHOLD_MM,
     DEFAULT_DIAG_ANGLE_DEG,
+    DEFAULT_STEP_MM,
+    DEFAULT_Z_MAX_MM,
+    DEFAULT_Z_MIN_MM,
 )
 from app.core.database import get_supabase
+from app.services.asymmetry import compute_asymmetry
+from app.services.head_metrics import compute_head_metrics
 
 router = APIRouter(prefix="/geometry", tags=["geometry"])
 

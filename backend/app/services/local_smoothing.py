@@ -31,10 +31,11 @@ from pygeodesic import geodesic
 
 logger = logging.getLogger(__name__)
 
-# Стартовые инженерные ориентиры сглаживания
-DEFAULT_SMOOTHING_RADIUS_MM: float = 15.0
-DEFAULT_SMOOTHING_INTENSITY: float = 0.5
-DEFAULT_SMOOTHING_ITERATIONS: int = 3
+from app.core.clinical_defaults import (
+    DEFAULT_SMOOTHING_INTENSITY,
+    DEFAULT_SMOOTHING_ITERATIONS,
+    DEFAULT_SMOOTHING_RADIUS_MM,
+)
 
 
 def compute_falloff_weights(
