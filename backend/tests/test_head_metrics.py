@@ -398,7 +398,7 @@ class TestFastApiEndpoint:
         mock_table.select.return_value = mock_select
         mock_db.table.return_value = mock_table
 
-        with patch("app.routers.geometry.get_supabase", return_value=mock_db):
+        with patch("app.api.geometry.get_supabase", return_value=mock_db):
             resp = client.post("/geometry/head-metrics", json={"scan_id": "test-uuid-123"})
             assert resp.status_code == 422
             detail = resp.json()["detail"]
@@ -424,8 +424,8 @@ class TestFastApiEndpoint:
         mock_table.select.return_value = mock_select
         mock_db.table.return_value = mock_table
 
-        with patch("app.routers.geometry.get_supabase", return_value=mock_db), \
-             patch("app.routers.geometry.load_mesh_from_url", return_value=mesh_sym):
+        with patch("app.api.geometry.get_supabase", return_value=mock_db), \
+             patch("app.api.geometry.load_mesh_from_url", return_value=mesh_sym):
             resp = client.post(
                 "/geometry/head-metrics",
                 json={"scan_id": "test-uuid-valid", "h_slice": 30.0, "diag_angle_deg": 30.0},

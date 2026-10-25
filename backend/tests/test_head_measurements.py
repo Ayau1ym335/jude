@@ -169,7 +169,7 @@ class TestCreateMeasurement:
         """
         mock_db = _make_mock_db_for_insert(VISIT_1_ROW)
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.post(
                 f"/scans/{SCAN_ID}/measurements",
                 json={
@@ -204,7 +204,7 @@ class TestCreateMeasurement:
         """
         mock_db = _make_mock_db_for_insert(VISIT_2_ROW)
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.post(
                 f"/scans/{SCAN_ID}/measurements",
                 json={
@@ -232,7 +232,7 @@ class TestCreateMeasurement:
         table.select.return_value = sel
         mock_db.table.return_value = table
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.post(
                 f"/scans/00000000-dead-beef-0000-000000000000/measurements",
                 json={"patient_id": PATIENT_ID},
@@ -283,7 +283,7 @@ class TestListMeasurements:
         rows = [VISIT_2_ROW, VISIT_1_ROW]
         mock_db = _make_mock_db_for_list(rows, count=2)
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.get(
                 f"/patients/{PATIENT_ID}/measurements",
                 headers={"Authorization": "Bearer test-token"},
@@ -309,7 +309,7 @@ class TestListMeasurements:
         rows = [VISIT_2_ROW, VISIT_1_ROW]  # сортировка DESC по measured_at
         mock_db = _make_mock_db_for_list(rows, count=2)
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.get(
                 f"/patients/{PATIENT_ID}/measurements",
                 headers={"Authorization": "Bearer test-token"},
@@ -340,7 +340,7 @@ class TestListMeasurements:
         table.select.return_value = sel
         mock_db.table.return_value = table
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.get(
                 f"/patients/00000000-dead-beef-0000-000000000000/measurements",
                 headers={"Authorization": "Bearer test-token"},
@@ -352,7 +352,7 @@ class TestListMeasurements:
         """Новый пациент без измерений → пустой список, total=0."""
         mock_db = _make_mock_db_for_list([], count=0)
 
-        with patch("app.routers.head_measurements.get_supabase", return_value=mock_db):
+        with patch("app.api.head_measurements.get_supabase", return_value=mock_db):
             resp = client.get(
                 f"/patients/{PATIENT_ID}/measurements",
                 headers={"Authorization": "Bearer test-token"},

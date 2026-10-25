@@ -1,14 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers.geometry import router as geometry_router
-from app.routers.landmarks import router as landmarks_router
-from app.routers.patients import router as patient_router
-from app.routers.projects import router as project_router
-from app.routers.scans import router as scan_router
-from app.routers.trim_lines import router as trim_lines_router
-from app.routers.head_measurements import router_scans as head_meas_scans_router
-from app.routers.head_measurements import router_patients as head_meas_patients_router
+from app.api.geometry import router as geometry_router
+from app.api.head_measurements import router_patients as head_meas_patients_router
+from app.api.head_measurements import router_scans as head_meas_scans_router
+from app.api.landmarks import router as landmarks_router
+from app.api.patients import router as patient_router
+from app.api.projects import router as project_router
+from app.api.scans import router as scan_router
+from app.api.trim_lines import router as trim_lines_router
 
 app = FastAPI(
     title="Jude API",

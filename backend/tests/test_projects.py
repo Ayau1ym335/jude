@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from app.routers.projects import create_project
+from app.api.projects import create_project
 from app.schemas.project import ProjectCreate, ProjectRead
 
 
@@ -95,7 +95,7 @@ def test_create_project_inserts_afo_type_to_db():
 
     mock_db.table.side_effect = table_router
 
-    with patch("app.routers.projects.get_supabase", return_value=mock_db):
+    with patch("app.api.projects.get_supabase", return_value=mock_db):
         res = create_project(payload)
         assert res.afo_type == "cranial_remolding"
         assert res.helmet_type == "cranial_remolding"

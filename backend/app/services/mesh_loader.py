@@ -1,10 +1,56 @@
+"""
+backend/app/services/mesh_loader.py
+
+Единый сервис загрузки 3D-мешей (STL, OBJ, PLY):
+1. Загрузка из локального файла (load_mesh) с проверкой формата и валидности Trimesh.
+2. Скачивание скана из Supabase Storage / HTTP во временный файл (download_scan_file_to_tempfile).
+3. Полный цикл загрузки по scan_id (load_mesh_from_url).
+"""
+
 import os
 import tempfile
+from pathlib import Path
+from typing import Union
+
 import httpx
 import trimesh
 
-from app.services.database import get_supabase
-from app.geometry.loader import load_mesh
+from app.core.database import get_supabase
+
+SUPPORTED_EXTENSIONS = {".stl", ".obj", ".ply"}
+
+
+def load_mesh(filepath: Union[str, Path]) -> trimesh.Trimesh:
+    """
+    Загружает 3D mesh из локального STL, OBJ или PLY файла.
+
+    Args:
+        filepath: Путь к файлу.
+
+    Returns:
+        trimesh.Trimesh: Загруженный объект полигональной сетки.
+
+    Raises:
+        FileNotFoundError: Если файл не найден.
+        ValueError: Если формат не поддерживается или меш невалиден.
+    """
+    path = Path(filepath)
+    if not path.exists():
+        raise FileNotFoundError(f"Файл не найден: {path}")
+
+    if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise ValueError(
+            f"Неподдерживаемый формат файла: {path.suffix}. "
+            f"Поддерживаемые форматы: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+        )
+
+    try:
+        mesh = trimesh.load(str(path), force="mesh")
+        if not isinstance(mesh, trimesh.Trimesh):
+            raise ValueError(f"Не удалось загрузить действительный объект Trimesh из {path}")
+        return mesh
+    except Exception as e:
+        raise ValueError(f"Ошибка при загрузке файла {path}: {e}")
 
 
 def download_scan_file_to_tempfile(file_url: str, db=None) -> str:
