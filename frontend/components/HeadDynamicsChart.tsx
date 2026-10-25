@@ -1,5 +1,5 @@
 import React from "react";
-import RawHeadDynamicsChart from "../src/components/HeadDynamicsChart";
+import RawHeadDynamicsChart from "@/src/components/HeadDynamicsChart";
 
 export interface HeadMeasurementItem {
   id: string;
@@ -31,4 +31,4 @@ export const HeadDynamicsChart: React.FC<HeadDynamicsChartProps> =
   RawHeadDynamicsChart as unknown as React.FC<HeadDynamicsChartProps>;
 
 export default HeadDynamicsChart;
-export * from "../src/components/HeadDynamicsChart";
+export * from "@/src/components/HeadDynamicsChart";
