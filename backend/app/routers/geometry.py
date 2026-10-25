@@ -12,9 +12,17 @@ POST /geometry/apply-smoothing   — локальная коррекция об�
 напрямую, инверсия слепка не требуется.
 """
 
+import asyncio
+import functools
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import numpy as np
+
+# Таймаут геодезического вычисления (секунды).
+# На сканах >200k граней PyGeodesicAlgorithmExact может занять >3 с;
+# без таймаута запрос висит до закрытия TCP-соединения (docs/blockers.md GEO-001).
+GEODESIC_TIMEOUT_SEC: float = 25.0
 
 from app.services.geodesic_curve import (
     compute_geodesic_curve_through_points,
@@ -52,6 +60,10 @@ async def geodesic_curve_endpoint(request: GeodesicCurveRequest):
     - click_points: список точек [[x,y,z], ...], минимум 2.
 
     Возвращает {"curve_points": [[x,y,z], ...]} — координаты кривой на поверхности.
+
+    Вычисление выполняется в thread pool (не блокирует event loop) с таймаутом
+    GEODESIC_TIMEOUT_SEC секунд.  При превышении возвращает HTTP 504.
+    (docs/blockers.md GEO-001)
     """
     if len(request.click_points) < 2:
         raise HTTPException(
@@ -68,8 +80,25 @@ async def geodesic_curve_endpoint(request: GeodesicCurveRequest):
 
     vertex_indices = [find_nearest_vertex_index(mesh, p) for p in request.click_points]
 
+    loop = asyncio.get_event_loop()
+    compute_fn = functools.partial(
+        compute_geodesic_curve_through_points, mesh, vertex_indices
+    )
     try:
-        curve_points = compute_geodesic_curve_through_points(mesh, vertex_indices)
+        curve_points = await asyncio.wait_for(
+            loop.run_in_executor(None, compute_fn),
+            timeout=GEODESIC_TIMEOUT_SEC,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Вычисление геодезической кривой превысило {GEODESIC_TIMEOUT_SEC:.0f} с. "
+                "Скан слишком большой — используйте упрощённый mesh "
+                "(trimesh.simplify_quadric_decimation до ~50k граней). "
+                "Подробнее: docs/blockers.md GEO-001."
+            ),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=422,
