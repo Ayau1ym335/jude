@@ -30,6 +30,9 @@ from app.core.clinical_defaults import (
     DEFAULT_Z_MAX_MM,
     DEFAULT_STEP_MM,
     DEFAULT_DIAG_ANGLE_DEG,
+    # Re-exported for backward compatibility (tests import from this module)
+    CI_TENTATIVE_REFERENCE,
+    CVAI_TENTATIVE_REFERENCE,
 )
 
 
