@@ -1,110 +1,149 @@
-# Helmet Platform (Cranial Remolding Orthosis)
+# Jude — Cranial Helmet Platform
 
-Полнофункциональное веб-приложение для ортопедических клиник и производителей краниальных шлемов. Управление пациентами, валидация и обработка 3D-сканов головы (STL, OBJ, PLY), проектирование шлемов-реформеров.
+Веб-приложение для ортопедических клиник и производителей **краниальных шлемов-реформеров** для младенцев.
+Управление пациентами, валидация и обработка 3D-сканов головы (STL, OBJ, PLY), проектирование шлемов.
 
 ## 🚀 Ключевые возможности
 
-- **Управление пациентами и проектами**: сквозной флоу от создания карточки пациента до загрузки скана и отслеживания проекта шлема.
-- **Валидация 3D-скана головы**: автоматический бэкенд-пайплайн — проверка manifoldness, watertightness и физических размеров модели.
-- **Автоматическая децимация**: фоновые задачи (FastAPI) сокращают высокополигональные сканы до оптимизированных превью (< 50 000 граней) для быстрого WebGL-рендера.
-- **Высокопроизводительный 3D-viewer**: WebGL на Three.js. Поддержка STL, OBJ, PLY. Динамический зум, авто-центрирование, оптимизация FPS.
-- **Геодезические кривые (trim-линии шлема)**: разметка линий обрезки — вырезы под уши, передний проём, нижний край. Строятся по поверхности скана через алгоритм Кимелла-Сетяна.
-- **Локальная коррекция объёма**: ядро проектирования шлема. В плоских зонах добавляется объём (зазор для роста), в выступающих убирается (снятие давления). Инструмент «добавить/убрать объём» с геодезическим затуханием.
-- **Версионирование правок**: каждая коррекция сохраняется как новая версия проекта.
-- **Экспорт STL**: для передачи в производство.
-- **Безопасная архитектура**: Supabase (PostgreSQL + Auth), JWT-аутентификация.
-
-> **Инверсия слепка не нужна** — для шлемов голова сканируется напрямую.
+| Область | Описание |
+|---|---|
+| Пациенты и проекты | Сквозной флоу: карточка пациента → скан → проект шлема → версии |
+| Валидация скана | Проверка manifoldness, watertightness, физических размеров |
+| Метрики головы | Обхват, CI, CVA/CVAI, диагонали — по горизонтальному срезу |
+| 3D-viewer | Three.js (STL/OBJ/PLY), зум, авто-центрирование |
+| Trim-линии | Геодезические кривые (алгоритм Кимелла–Сетяна) для разметки вырезов шлема |
+| Локальная коррекция | Добавление/снятие объёма с геодезическим затуханием |
+| Версионирование | Каждая правка — отдельная версия проекта |
+| Безопасность | Supabase Auth (JWT), RLS на всех таблицах |
 
 ## 🛠 Стек
 
-### Frontend
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript, React
-- **Styling**: Tailwind CSS (glassmorphism UI, dark mode)
-- **3D Rendering**: Three.js (raw integration)
-
-### Backend
-- **Framework**: FastAPI
-- **Language**: Python 3
-- **Geometry**: Trimesh + pygeodesic (алгоритм Кимелла-Сетяна)
-- **Database & Storage**: Supabase (PostgreSQL, Storage, Auth)
+| Слой | Технология |
+|---|---|
+| Frontend | Next.js 15 (App Router), TypeScript, Three.js |
+| Backend | FastAPI, Python 3.12, Trimesh, pygeodesic |
+| БД / Хранилище / Auth | Supabase (PostgreSQL + Storage + Auth) |
+| Lint / Тесты | ESLint, tsc --noEmit, Jest · Ruff, Pytest |
 
 ## 📁 Структура проекта
 
 ```text
-├── backend/                  # FastAPI Application
+jude/
+├── backend/
 │   ├── app/
-│   │   ├── dependencies/     # Auth and DB dependencies
-│   │   ├── geometry/         # Trimesh processing, validation, decimation
-│   │   ├── routers/          # API endpoints (patients, projects, scans, geometry, trim-lines)
-│   │   ├── schemas/          # Pydantic models (ScanCreate, ProjectCreate с helmet_type)
-│   │   └── services/         # Supabase client
-│   └── services/
-│       ├── local_smoothing.py   # Локальная коррекция объёма (геодезические веса)
-│       ├── versioning.py        # Сохранение версий mesh
-│       └── mesh_loader.py       # Загрузка mesh из Supabase Storage
+│   │   ├── api/            # Роутеры API (patients, projects, scans, geometry, trim-lines)
+│   │   │   └── geometry.py # Метрики головы, асимметрия, геодезика, сглаживание
+│   │   ├── core/           # Конфиг, DB, Auth, исключения, клинические константы
+│   │   ├── routers/        # Compatibility re-exports → app/api/
+│   │   ├── schemas/        # Pydantic модели
+│   │   └── services/       # Бизнес-логика (mesh_loader, asymmetry, head_metrics, …)
+│   ├── tests/              # pytest (unit + rls)
+│   └── scripts/            # seed_test_scan, fetch_ids
 │
-├── frontend/                 # Next.js Application
-│   ├── app/                  # App Router pages (dashboard, patients, upload)
-│   ├── components/           # React components
-│   │   ├── ModelViewer.tsx      # 3D viewer (Three.js)
-│   │   ├── TrimLinesPanel.tsx   # Панель trim-линий шлема
-│   │   ├── TrimLineDrawer.tsx   # Canvas overlay для рисования кривых
-│   │   └── SmoothingTool.tsx    # Инструмент коррекции объёма
-│   └── package.json
+├── frontend/
+│   ├── app/                # Next.js App Router (dashboard, patients, upload, viewer)
+│   ├── components/         # Общие UI-компоненты (ModelViewer, TrimLinesPanel, …)
+│   ├── features/           # Доменные фичи (patients/, viewer/, trim-lines/, metrics/)
+│   ├── lib/
+│   │   └── api.ts          # Централизованный типизированный API-клиент
+│   └── src/components/     # Унаследованные JSX-компоненты (HeadMetricsPanel, HeadDynamicsChart, …)
+│
+├── supabase/
+│   └── migrations/         # SQL-миграции (включая cranial_helmet_transition, enable_rls)
+│
+├── docs/
+│   ├── architecture.md     # Архитектурное описание
+│   ├── fix_report.md       # Отчёт фазы fix/broken
+│   └── blockers.md         # Известные блокеры
+│
+└── .github/workflows/
+    ├── backend.yml         # ruff lint/format + pytest
+    └── frontend.yml        # eslint + tsc + jest + next build
 ```
 
 ## ⚙️ Локальная разработка
 
 ### Требования
-- Node.js (v18+)
-- Python (v3.10+)
-- Supabase Project (URL & Anon Key)
 
-### 1. Supabase
-Таблицы в БД:
-- `patients`
-- `scans` (поле `scan_source`: patient_direct / structured_light / photogrammetry)
-- `projects` (поле `helmet_type`: cranial_remolding)
-- `project_versions`
-- `trim_lines`
-- Storage Bucket: `scan-files`
+- Node.js ≥ 18
+- Python ≥ 3.12
+- Supabase project (URL + Anon Key + Service Role Key)
 
-### 2. Backend
+### 1. Backend
+
 ```bash
 cd backend
 python -m venv .venv
+# Windows:
 .venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
-`.env.local` в `backend/`:
+
+Создайте `backend/.env`:
 ```env
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+SECRET_KEY=<your-secret>
 ```
+
 ```bash
 uvicorn app.main:app --reload
+# API: http://localhost:8000
+# Swagger: http://localhost:8000/docs
 ```
-API: `http://localhost:8000` | Swagger: `http://localhost:8000/docs`
 
-### 3. Frontend
+```bash
+# Тесты
+pytest tests/ -q
+# Lint
+ruff check . && ruff format --check .
+```
+
+### 2. Frontend
+
 ```bash
 cd frontend
 npm install
 ```
-`.env.local` в `frontend/`:
+
+Создайте `frontend/.env.local`:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
+
 ```bash
-npm run dev
+npm run dev          # http://localhost:3000
+npm run lint         # ESLint
+npx tsc --noEmit     # TypeScript check
+npm test             # Jest
+npm run build        # Production build
 ```
-App: `http://localhost:3000`
 
 ## 📦 Деплой
-- **Frontend**: Vercel (подключить репозиторий, деплоить директорию `frontend/`).
-- **Backend**: Railway, Render или любой Docker-совместимый хостинг.
+
+- **Frontend**: Vercel — подключить репозиторий, корневая директория `frontend/`.
+- **Backend**: Railway / Render / Docker-совместимый хостинг.
+- **Supabase**: применить миграции: `supabase db push` или вручную через Dashboard.
+
+## 📐 Клинические константы
+
+Пороги для оценки деформации определены в `backend/app/core/clinical_defaults.py`:
+
+| Метрика | Норма | Умеренная | Тяжёлая |
+|---|---|---|---|
+| CVAI | < 3.5 % | 3.5–6.25 % | > 6.25 % |
+| CI (Cephalic Index) | 75–85 % | — | < 70 или > 90 % |
+| CVA | < 5 мм | 5–10 мм | > 10 мм |
+
+## 🧪 CI
+
+| Воркфлоу | Шаги |
+|---|---|
+| Backend | ruff lint → ruff format check → pytest |
+| Frontend | eslint → tsc --noEmit → jest → next build |
