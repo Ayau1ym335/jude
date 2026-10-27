@@ -35,6 +35,18 @@ from app.core.clinical_defaults import (
     CVAI_TENTATIVE_REFERENCE,
 )
 
+__all__ = [
+    "CI_TENTATIVE_REFERENCE",
+    "CVAI_TENTATIVE_REFERENCE",
+    "contour_perimeter",
+    "cross_section",
+    "best_slice_height",
+    "cephalic_index",
+    "diagonals",
+    "cvai",
+    "compute_head_metrics",
+]
+
 
 def contour_perimeter(contour: np.ndarray) -> float:
     """

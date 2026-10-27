@@ -34,6 +34,38 @@ function authHeaders(token?: string, extraHeaders?: HeadersInit): HeadersInit {
   return headers;
 }
 
+export type PatientSide = "left" | "right" | "both";
+
+export interface PatientRead {
+  id: string;
+  clinic_id?: string | null;
+  anonymized_identifier: string;
+  birth_date?: string | null;
+  side?: PatientSide | null;
+  notes?: string | null;
+  anthropometric_data?: Record<string, unknown> | null;
+  age_weeks?: number | null;
+  age_months?: number | null;
+  age_display?: string | null;
+  created_at: string;
+}
+
+export interface PatientCreate {
+  anonymized_identifier: string;
+  birth_date?: string | null;
+  side?: PatientSide | null;
+  notes?: string | null;
+  clinic_id?: string | null;
+  anthropometric_data?: Record<string, unknown> | null;
+}
+
+export interface PatientListRead {
+  items: PatientRead[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ScanRead {
   id: string;
   patient_id: string;
@@ -57,10 +89,22 @@ export interface ProjectRead {
   patient_id: string;
   scan_id: string;
   afo_type?: string | null;
+  helmet_type?: string | null;
   product_type?: string | null;
-  status?: string | null;
-  created_at?: string | null;
+  status: "in_progress" | "exported" | "manufactured";
+  current_step?: number | null;
+  workflow_state?: Record<string, unknown> | null;
+  scan_validation_status?: "pending" | "valid" | "invalid" | null;
+  created_at: string;
 }
+
+
+export interface ProjectListRead {
+  items: ProjectRead[];
+  total: number;
+  patient_id?: string | null;
+}
+
 
 export interface ProjectVersionRead {
   id: string;
@@ -152,46 +196,23 @@ export const api = {
         `${getApiUrl()}/patients?limit=${limit}&offset=${offset}`,
         { headers: authHeaders(token) }
       );
-      return handleResponse<{
-        items: Array<{
-          id: string;
-          anonymized_identifier: string;
-          side: string | null;
-          created_at: string;
-        }>;
-        total: number;
-        limit: number;
-        offset: number;
-      }>(res);
+      return handleResponse<PatientListRead>(res);
     },
 
     async get(token: string, id: string) {
       const res = await fetch(`${getApiUrl()}/patients/${id}`, {
         headers: authHeaders(token),
       });
-      return handleResponse<{
-        id: string;
-        anonymized_identifier: string;
-        side: string | null;
-        created_at: string;
-      }>(res);
+      return handleResponse<PatientRead>(res);
     },
 
-    async create(
-      token: string,
-      payload: { anonymized_identifier: string; side?: string | null }
-    ) {
+    async create(token: string, payload: PatientCreate) {
       const res = await fetch(`${getApiUrl()}/patients`, {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify(payload),
       });
-      return handleResponse<{
-        id: string;
-        anonymized_identifier: string;
-        side: string | null;
-        created_at: string;
-      }>(res);
+      return handleResponse<PatientRead>(res);
     },
   },
 
@@ -239,6 +260,16 @@ export const api = {
   },
 
   projects: {
+    async list(token: string, patientId?: string) {
+      const url = patientId
+        ? `${getApiUrl()}/projects?patient_id=${patientId}`
+        : `${getApiUrl()}/projects`;
+      const res = await fetch(url, {
+        headers: authHeaders(token),
+      });
+      return handleResponse<ProjectListRead>(res);
+    },
+
     async get(token: string, id: string) {
       const res = await fetch(`${getApiUrl()}/projects/${id}`, {
         headers: authHeaders(token),
@@ -252,6 +283,7 @@ export const api = {
         patient_id: string;
         scan_id: string;
         afo_type?: string;
+        helmet_type?: string;
         product_type?: string;
       }
     ) {
@@ -269,7 +301,26 @@ export const api = {
       });
       return handleResponse<ProjectVersionRead[]>(res);
     },
+
+    async update(
+      token: string,
+      id: string,
+      payload: {
+        current_step?: number;
+        workflow_state?: Record<string, unknown>;
+        status?: string;
+      }
+    ) {
+      const res = await fetch(`${getApiUrl()}/projects/${id}`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify(payload),
+      });
+      return handleResponse<ProjectRead>(res);
+    },
   },
+
+
 
   geometry: {
     async computeHeadMetrics(

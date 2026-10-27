@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import {
+  calculateInfantAge,
   createPatient,
   suggestPatientIdentifier,
   type Patient,
@@ -12,6 +13,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import Badge from "@/components/ui/Badge";
 
 interface CreatePatientFormProps {
   accessToken: string;
@@ -29,9 +31,13 @@ export default function CreatePatientForm({
   compact = false,
 }: CreatePatientFormProps) {
   const [identifier, setIdentifier] = useState(suggestedIdentifier);
+  const [birthDate, setBirthDate] = useState("");
   const [side, setSide] = useState<PatientSide | "">("");
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const calculatedAge = calculateInfantAge(birthDate);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,11 +47,13 @@ export default function CreatePatientForm({
     try {
       const patient = await createPatient(accessToken, {
         anonymized_identifier: identifier,
+        birth_date: birthDate || null,
         side: side || null,
+        notes: notes || null,
       });
       onCreated(patient);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка создания");
+      setError(err instanceof Error ? err.message : "Ошибка создания пациента");
     } finally {
       setLoading(false);
     }
@@ -62,16 +70,51 @@ export default function CreatePatientForm({
         className="font-mono text-sm"
       />
 
+      <div className="flex flex-col gap-1.5">
+        <Input
+          label="Дата рождения младенца"
+          type="date"
+          value={birthDate}
+          onChange={(e) => setBirthDate(e.target.value)}
+        />
+        {calculatedAge.display ? (
+          <div className="flex items-center gap-2 pt-1 text-xs">
+            <span className="text-jude-muted">Возраст:</span>
+            <Badge variant="accent">{calculatedAge.display}</Badge>
+            {calculatedAge.months !== null &&
+              calculatedAge.months >= 4 &&
+              calculatedAge.months <= 8 && (
+                <span className="text-emerald-600 font-medium text-[11px]">
+                  (оптимальный период для шлема)
+                </span>
+              )}
+          </div>
+        ) : null}
+      </div>
+
       <Select
-        label="Сторона"
+        label="Сторона заметок (левое/правое пациента)"
         value={side}
         onChange={(e) => setSide(e.target.value as PatientSide | "")}
       >
         <option value="">Не указана</option>
-        <option value="left">Левая</option>
-        <option value="right">Правая</option>
-        <option value="both">Обе</option>
+        <option value="left">Левая сторона (пациента)</option>
+        <option value="right">Правая сторона (пациента)</option>
+        <option value="both">Обе стороны</option>
       </Select>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-jude-ink">
+          Клинические заметки
+        </span>
+        <textarea
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Локализация уплощения (плагиоцефалия/брахицефалия), особенности позы..."
+          className="rounded-xl border border-jude-border bg-jude-surface p-3 text-sm text-jude-ink placeholder-jude-muted shadow-jude transition-colors focus:border-jude-primary focus:outline-none focus:ring-1 focus:ring-jude-primary"
+        />
+      </label>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 

@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
+import { api, type PatientRead, type ProjectRead } from "@/lib/api";
 import { SIDE_LABELS, type PatientSide } from "@/lib/patients";
 import PageHeader from "@/components/ui/PageHeader";
 import Card, { CardTitle } from "@/components/ui/Card";
@@ -13,25 +14,6 @@ import Alert from "@/components/ui/Alert";
 import Spinner from "@/components/ui/Spinner";
 import Button from "@/components/ui/Button";
 import HeadDynamicsChart from "@/components/HeadDynamicsChart";
-
-interface Patient {
-  id: string;
-  anonymized_identifier: string;
-  side: string | null;
-  created_at: string;
-}
-
-interface Project {
-  id: string;
-  patient_id: string;
-  scan_id: string;
-  afo_type?: string;
-  helmet_type?: string;
-  product_type?: string;
-  status: "in_progress" | "exported" | "manufactured";
-  scan_validation_status: "pending" | "valid" | "invalid" | null;
-  created_at: string;
-}
 
 const STATUS_LABELS: Record<string, string> = {
   in_progress: "В работе",
@@ -67,8 +49,8 @@ export default function PatientDetailPage() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [patient, setPatient] = useState<PatientRead | null>(null);
+  const [projects, setProjects] = useState<ProjectRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,29 +73,15 @@ export default function PatientDetailPage() {
     async function fetchData() {
       setLoading(true);
       setError(null);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      const headers = { Authorization: `Bearer ${session!.access_token}` };
 
       try {
-        const [patientRes, projectsRes] = await Promise.all([
-          fetch(`${apiUrl}/patients/${patientId}`, { headers }),
-          fetch(`${apiUrl}/projects?patient_id=${patientId}`, { headers }),
+        const [patientData, projectsData] = await Promise.all([
+          api.patients.get(session!.access_token, patientId),
+          api.projects.list(session!.access_token, patientId),
         ]);
 
-        if (!patientRes.ok) {
-          throw new Error(
-            patientRes.status === 404
-              ? "Пациент не найден"
-              : `Ошибка загрузки пациента: ${patientRes.status}`,
-          );
-        }
-
-        setPatient((await patientRes.json()) as Patient);
-
-        if (projectsRes.ok) {
-          const pData = await projectsRes.json();
-          setProjects(Array.isArray(pData) ? pData : (pData.items ?? []));
-        }
+        setPatient(patientData);
+        setProjects(projectsData.items ?? []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ошибка загрузки данных");
       } finally {
@@ -145,22 +113,54 @@ export default function PatientDetailPage() {
       {!loading && !error && patient && (
         <>
           <Card className="mb-8">
-            <h2 className="text-2xl font-semibold text-jude-ink">
-              {patient.anonymized_identifier}
-            </h2>
-              <p className="mt-1 text-sm text-jude-muted">
-                Сторона:{" "}
-                {patient.side
-                  ? (SIDE_LABELS[patient.side as PatientSide] ?? patient.side)
-                  : "не указана"}
-              </p>
-            <p className="mt-0.5 font-mono text-xs text-jude-subtle">
-              Создан: {new Date(patient.created_at).toLocaleDateString("ru-RU")}
-            </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-jude-ink">
+                  {patient.anonymized_identifier}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                  {patient.age_display ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-jude-muted">Возраст младенца:</span>
+                      <Badge variant="accent">{patient.age_display}</Badge>
+                    </div>
+                  ) : null}
+
+                  {patient.birth_date ? (
+                    <span className="text-jude-muted">
+                      Дата рождения:{" "}
+                      <span className="font-medium text-jude-ink">
+                        {new Date(patient.birth_date).toLocaleDateString("ru-RU")}
+                      </span>
+                    </span>
+                  ) : null}
+
+                  <span className="text-jude-muted">
+                    Сторона заметок:{" "}
+                    <span className="font-medium text-jude-ink">
+                      {patient.side
+                        ? (SIDE_LABELS[patient.side as PatientSide] ?? patient.side)
+                        : "не указана"}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <span className="font-mono text-xs text-jude-subtle">
+                Создан: {new Date(patient.created_at).toLocaleDateString("ru-RU")}
+              </span>
+            </div>
+
+            {patient.notes ? (
+              <div className="mt-4 rounded-xl border border-jude-border bg-jude-surface-muted p-3 text-sm">
+                <span className="font-medium text-jude-ink">Заметки врача: </span>
+                <span className="text-jude-muted">{patient.notes}</span>
+              </div>
+            ) : null}
           </Card>
 
           <div>
-            <CardTitle className="mb-3">Проекты</CardTitle>
+            <CardTitle className="mb-3">Проекты краниальных шлемов</CardTitle>
 
             {projects.length === 0 ? (
               <p className="text-sm text-jude-muted">Проектов пока нет.</p>
@@ -177,7 +177,9 @@ export default function PatientDetailPage() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-jude-ink">
-                          {project.helmet_type ?? project.product_type ?? project.afo_type ?? "Краниальный шлем"}
+                          {project.product_type === "cranial_helmet"
+                            ? "Краниальный шлем"
+                            : project.helmet_type ?? project.afo_type ?? "Краниальный шлем"}
                         </span>
                         <div className="flex items-center gap-2">
                           <ScanStatusIndicator

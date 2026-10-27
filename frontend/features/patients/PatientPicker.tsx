@@ -106,9 +106,11 @@ export default function PatientPicker({
           {patients.map((patient) => (
             <option key={patient.id} value={patient.id}>
               {patient.anonymized_identifier}
+              {patient.age_display ? ` (${patient.age_display})` : ""}
               {patient.side ? ` — ${SIDE_LABELS[patient.side]}` : ""}
             </option>
           ))}
+
         </Select>
       ) : null}
 

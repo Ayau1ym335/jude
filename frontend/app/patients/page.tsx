@@ -12,15 +12,16 @@ import {
   type Patient,
   type PatientSide,
 } from "@/lib/patients";
-import CreatePatientForm from "@/components/CreatePatientForm";
+import CreatePatientForm from "@/features/patients/CreatePatientForm";
 import PageHeader from "@/components/ui/PageHeader";
 import Card, { CardTitle } from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 
-function formatSide(side: string | null): string {
+function formatSide(side: string | null | undefined): string {
   if (!side) return "—";
   return SIDE_LABELS[side as PatientSide] ?? side;
 }
@@ -77,9 +78,12 @@ export default function PatientsPage() {
     setShowCreateForm(false);
   }
 
-  const filtered = patients.filter((p) =>
-    p.anonymized_identifier.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filtered = patients.filter((p) => {
+    const term = searchTerm.toLowerCase();
+    const idMatch = p.anonymized_identifier.toLowerCase().includes(term);
+    const notesMatch = p.notes ? p.notes.toLowerCase().includes(term) : false;
+    return idMatch || notesMatch;
+  });
 
   if (authLoading) {
     return <Spinner className="flex-1 py-24" />;
@@ -89,7 +93,7 @@ export default function PatientsPage() {
     <div className="flex flex-1 flex-col">
       <PageHeader
         title="Пациенты"
-        description="Список анонимизированных карточек"
+        description="Карточки младенцев для краниальной терапии"
         action={
           <Button
             variant={showCreateForm ? "secondary" : "accent"}
@@ -101,8 +105,8 @@ export default function PatientsPage() {
       />
 
       {showCreateForm && session ? (
-        <Card className="mb-6 max-w-md">
-          <CardTitle className="mb-4">Новый пациент</CardTitle>
+        <Card className="mb-6 max-w-lg">
+          <CardTitle className="mb-4">Новый пациент-младенец</CardTitle>
           <CreatePatientForm
             accessToken={session.access_token}
             suggestedIdentifier={suggestPatientIdentifier(patients.length)}
@@ -114,7 +118,7 @@ export default function PatientsPage() {
 
       <div className="mb-4 max-w-sm">
         <Input
-          placeholder="Поиск по идентификатору..."
+          placeholder="Поиск по идентификатору или заметкам..."
           value={searchTerm}
           onChange={handleSearch}
         />
@@ -136,7 +140,10 @@ export default function PatientsPage() {
                   Идентификатор
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-jude-muted">
-                  Сторона
+                  Возраст младенца
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-jude-muted">
+                  Сторона (пациента)
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-jude-muted">
                   Создан
@@ -154,6 +161,13 @@ export default function PatientsPage() {
                 >
                   <td className="px-4 py-3 font-medium text-jude-ink">
                     {patient.anonymized_identifier}
+                  </td>
+                  <td className="px-4 py-3 text-jude-ink">
+                    {patient.age_display ? (
+                      <Badge variant="accent">{patient.age_display}</Badge>
+                    ) : (
+                      <span className="text-jude-subtle">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-jude-muted">
                     {formatSide(patient.side)}

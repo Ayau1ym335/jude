@@ -1,55 +1,32 @@
 """
-CRUD для Patient — реальные запросы к Supabase.
+CRUD роутер для Patient.
 
-POST /patients        — создание карточки пациента
-GET  /patients        — список пациентов (с пагинацией)
-GET  /patients/{id}   — получение одной карточки
+Правило Jude:
+Эндпоинты в app/api/ только принимают запрос, вызывают сервис и возвращают ответ.
+Вся бизнес-логика и доступ к БД находятся в app/services/patient.py.
 """
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.core.auth import CurrentUser, get_current_user
 from app.core.database import get_supabase
 from app.schemas.patient import PatientCreate, PatientList, PatientRead
+from app.services.patient import (
+    create_patient_service,
+    get_patient_service,
+    list_patients_service,
+)
 
 router = APIRouter(prefix="/patients", tags=["patients"])
-
-TABLE = "patients"
 
 
 @router.post("", response_model=PatientRead, status_code=status.HTTP_201_CREATED)
 def create_patient(payload: PatientCreate) -> PatientRead:
-    """Создать карточку пациента."""
+    """Создать карточку пациента-младенца."""
     db = get_supabase()
-
-    data = {
-        "clinic_id": str(payload.clinic_id) if payload.clinic_id else None,
-        "anonymized_identifier": payload.anonymized_identifier,
-        "side": payload.side,
-        "anthropometric_data": payload.anthropometric_data,
-    }
-
-    try:
-        response = db.table(TABLE).insert(data).execute()
-    except Exception as exc:
-        # Supabase-py бросает исключение при нарушении UNIQUE-ограничения (код 23505).
-        msg = str(exc)
-        if "23505" in msg or "unique" in msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Пациент с идентификатором '{payload.anonymized_identifier}' уже существует.",
-            )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=msg)
-
-    if not response.data:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Supabase вернул пустой ответ при создании пациента.",
-        )
-
-    return PatientRead(**response.data[0])
+    return create_patient_service(payload, db=db)
 
 
 @router.get("", response_model=PatientList)
@@ -58,48 +35,13 @@ def list_patients(
     limit: int = Query(default=20, ge=1, le=100, description="Размер страницы."),
     offset: int = Query(default=0, ge=0, description="Смещение от начала списка."),
 ) -> PatientList:
-    """
-    Список пациентов с пагинацией.
-
-    Supabase поддерживает count="exact" — получаем total без второго запроса.
-    """
+    """Список пациентов с пагинацией и автоматическим расчётом возраста."""
     db = get_supabase()
-
-    try:
-        response = (
-            db.table(TABLE)
-            .select("*", count="exact")
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-
-    total = response.count if response.count is not None else len(response.data)
-    items = [PatientRead(**row) for row in response.data]
-    return PatientList(items=items, total=total, limit=limit, offset=offset)
+    return list_patients_service(limit=limit, offset=offset, db=db)
 
 
 @router.get("/{patient_id}", response_model=PatientRead)
 def get_patient(patient_id: UUID) -> PatientRead:
     """Получить карточку пациента по id."""
     db = get_supabase()
-
-    try:
-        response = (
-            db.table(TABLE)
-            .select("*")
-            .eq("id", str(patient_id))
-            .maybe_single()
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-
-    if response.data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Пациент с id={patient_id} не найден.",
-        )
-
-    return PatientRead(**response.data)
+    return get_patient_service(patient_id, db=db)
